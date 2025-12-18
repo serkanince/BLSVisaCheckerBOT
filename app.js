@@ -309,11 +309,87 @@ async function main() {
             console.log(`\n🔄 Login tekrar deneniyor (${loginRetries + 1}/${maxLoginRetries})...`);
             
             await driver.sleep(2000);
-            const currentUrl = await driver.getCurrentUrl();
             
-            // Sayfa refresh olduysa tekrar email gir
-            if (currentUrl.includes('/Account/LogIn')) {
-              console.log("Login sayfasına geri döndük, tekrar email giriliyor...");
+            // Önce password alanını kontrol et - varsa ve boşsa doldur
+            console.log("Password alanı kontrol ediliyor...");
+            let passwordFound = false;
+            let passwordFilled = false;
+            
+            const retryPasswords = await driver.findElements(By.css('input[type="password"]'));
+            for (let passInput of retryPasswords) {
+              try {
+                // Görünürlük kontrolü - bazı inputlar hidden olabilir
+                let passDisplayed = false;
+                try {
+                  passDisplayed = await passInput.isDisplayed();
+                } catch (e) {
+                  // isDisplayed hata verirse, JS ile kontrol et
+                  passDisplayed = await driver.executeScript(`
+                    const el = arguments[0];
+                    const style = window.getComputedStyle(el);
+                    return style.display !== 'none' && style.visibility !== 'hidden' && el.offsetParent !== null;
+                  `, passInput);
+                }
+                
+                const passRect = await passInput.getRect();
+                if (passDisplayed && passRect.width > 50) {
+                  passwordFound = true;
+                  console.log("✅ Password input bulundu!");
+                  
+                  // entry-disabled class'ını kaldır (anti-bot önlemi olabilir)
+                  const inputClass = await passInput.getAttribute('class');
+                  if (inputClass && inputClass.includes('entry-disabled')) {
+                    console.log("⚠️ entry-disabled class'ı tespit edildi, kaldırılıyor...");
+                    await driver.executeScript(`
+                      arguments[0].classList.remove('entry-disabled');
+                      arguments[0].removeAttribute('disabled');
+                      arguments[0].removeAttribute('readonly');
+                    `, passInput);
+                    await driver.sleep(300);
+                  }
+                  
+                  // Password değerini kontrol et ve doldur
+                  const currentValue = await passInput.getAttribute('value');
+                  if (!currentValue || currentValue.length === 0) {
+                    // Önce JS ile temizle, sonra doldur
+                    await driver.executeScript("arguments[0].value = '';", passInput);
+                    await driver.executeScript("arguments[0].focus();", passInput);
+                    await driver.sleep(200);
+                    
+                    // sendKeys ile gir
+                    await passInput.sendKeys(PASSWORD);
+                    
+                    // Değer girildi mi kontrol et
+                    const newValue = await passInput.getAttribute('value');
+                    if (newValue && newValue.length > 0) {
+                      console.log("✅ Password tekrar girildi!");
+                      passwordFilled = true;
+                    } else {
+                      // sendKeys çalışmadıysa JS ile dene
+                      console.log("⚠️ sendKeys çalışmadı, JS ile deneniyor...");
+                      await driver.executeScript(`arguments[0].value = arguments[1];`, passInput, PASSWORD);
+                      // Input event'i tetikle
+                      await driver.executeScript(`
+                        arguments[0].dispatchEvent(new Event('input', { bubbles: true }));
+                        arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
+                      `, passInput);
+                      console.log("✅ Password JS ile girildi!");
+                      passwordFilled = true;
+                    }
+                  } else {
+                    console.log("✅ Password zaten dolu");
+                    passwordFilled = true;
+                  }
+                  break;
+                }
+              } catch (e) {
+                console.log(`⚠️ Password input kontrol hatası: ${e.message}`);
+              }
+            }
+            
+            // Password input bulunamadı veya görünmüyor - email sayfasına dönmüş olabiliriz
+            if (!passwordFound) {
+              console.log("⚠️ Password alanı bulunamadı - email sayfasına dönülmüş olabilir");
               
               // Email input bul ve doldur
               const retryEmailInputs = await driver.findElements(By.css('input[type="text"]'));
@@ -328,40 +404,87 @@ async function main() {
                     
                     // btnVerify tıkla
                     await driver.sleep(1000);
-                    await driver.findElement(By.id("btnVerify")).click();
+                    try {
+                      await driver.findElement(By.id("btnVerify")).click();
+                      console.log("✅ btnVerify tıklandı!");
+                    } catch (e) {
+                      console.log("⚠️ btnVerify bulunamadı");
+                    }
                     await driver.sleep(3000);
                     break;
                   }
                 } catch (e) {}
               }
+              
+              // Şimdi password sayfası yüklenmeli - tekrar password doldur
+              console.log("Password sayfası bekleniyor...");
+              await driver.sleep(2000);
+              
+              const newPasswords = await driver.findElements(By.css('input[type="password"]'));
+              for (let passInput of newPasswords) {
+                try {
+                  let passDisplayed = false;
+                  try {
+                    passDisplayed = await passInput.isDisplayed();
+                  } catch (e) {
+                    passDisplayed = await driver.executeScript(`
+                      const el = arguments[0];
+                      const style = window.getComputedStyle(el);
+                      return style.display !== 'none' && style.visibility !== 'hidden' && el.offsetParent !== null;
+                    `, passInput);
+                  }
+                  
+                  const passRect = await passInput.getRect();
+                  if (passDisplayed && passRect.width > 50) {
+                    console.log("✅ Password input bulundu!");
+                    
+                    // entry-disabled class'ını kaldır
+                    const inputClass = await passInput.getAttribute('class');
+                    if (inputClass && inputClass.includes('entry-disabled')) {
+                      console.log("⚠️ entry-disabled class'ı kaldırılıyor...");
+                      await driver.executeScript(`
+                        arguments[0].classList.remove('entry-disabled');
+                        arguments[0].removeAttribute('disabled');
+                        arguments[0].removeAttribute('readonly');
+                      `, passInput);
+                      await driver.sleep(300);
+                    }
+                    
+                    await driver.executeScript("arguments[0].value = '';", passInput);
+                    await driver.executeScript("arguments[0].focus();", passInput);
+                    await driver.sleep(200);
+                    await passInput.sendKeys(PASSWORD);
+                    
+                    const newValue = await passInput.getAttribute('value');
+                    if (newValue && newValue.length > 0) {
+                      console.log("✅ Password girildi!");
+                      passwordFilled = true;
+                    } else {
+                      await driver.executeScript(`arguments[0].value = arguments[1];`, passInput, PASSWORD);
+                      await driver.executeScript(`
+                        arguments[0].dispatchEvent(new Event('input', { bubbles: true }));
+                        arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
+                      `, passInput);
+                      console.log("✅ Password JS ile girildi!");
+                      passwordFilled = true;
+                    }
+                    break;
+                  }
+                } catch (e) {
+                  console.log(`⚠️ Password kontrol hatası: ${e.message}`);
+                }
+              }
             }
             
-            // Password alanını kontrol et ve doldur (her retry'da)
-            console.log("Password alanı kontrol ediliyor...");
-            const retryPasswords = await driver.findElements(By.css('input[type="password"]'));
-            for (let passInput of retryPasswords) {
-              try {
-                const passDisplayed = await passInput.isDisplayed();
-                const passRect = await passInput.getRect();
-                if (passDisplayed && passRect.width > 50) {
-                  // Password değerini kontrol et
-                  const currentValue = await passInput.getAttribute('value');
-                  if (!currentValue || currentValue.length === 0) {
-                    await driver.executeScript("arguments[0].value = '';", passInput);
-                    await passInput.sendKeys(PASSWORD);
-                    console.log("✅ Password tekrar girildi!");
-                  } else {
-                    console.log("✅ Password zaten dolu");
-                  }
-                  break;
-                }
-              } catch (e) {}
+            if (!passwordFilled) {
+              console.log("❌ Password alanı doldurulamadı!");
             }
+            
             await driver.sleep(1000);
           }
           
           console.log("Login captcha çözülüyor...");
-          await solveCaptchaInIframe(driver);
+          await solveCaptchaInIframe(driver, 0, 3, true); // isLoginCaptcha = true
           
           // Captcha sonrası "Application Temporarily Unavailable" kontrolü
           await driver.sleep(2000);
@@ -1028,35 +1151,6 @@ async function main() {
   })();
 }
 
-// ========== BOT LOOP ==========
-(async function loop() {
-  console.log("\n🤖 BLS VİZE RANDEVU BOT BAŞLADI!\n");
-  console.log("⚙️  Ayarlar:");
-  console.log("   📍 Lokasyon: Ankara");
-  console.log("   🎫 Vize Tipi: Schengen Turist");
-  console.log("   ⏱  Kontrol Aralığı: 15 dakika");
-  console.log("   📱 Telegram: Sadece sonuç bildirimleri\n");
-  
-  let runCount = 0;
-  
-  while (true) {
-    runCount++;
-    console.log(`\n${'='.repeat(60)}`);
-    console.log(`🔄 DÖNGÜ #${runCount} BAŞLADI - ${new Date().toLocaleString('tr-TR')}`);
-    console.log(`${'='.repeat(60)}\n`);
-    
-    try {
-      await main();
-    } catch (e) {
-      console.error(`\n❌ Döngü #${runCount} hatası:`, e.message);
-    }
-    
-    console.log(`\n${'='.repeat(60)}`);
-    console.log(`✅ DÖNGÜ #${runCount} TAMAMLANDI`);
-    console.log(`⏰ Sonraki kontrol: ${new Date(Date.now() + 15 * 60 * 1000).toLocaleString('tr-TR')}`);
-    console.log(`${'='.repeat(60)}\n`);
-    
-    // 15 dakika bekle
-    await new Promise(res => setTimeout(res, 15 * 60 * 1000));
-  }
-})();
+// app.js artık sadece main() fonksiyonunu çalıştırıyor
+// Döngü için main.js kullanılmalı!
+main();

@@ -207,7 +207,7 @@ async function runOCRWithVoting(imgBuffer, boxIndex) {
 // ============================================
 // ANA FONKSİYON: Captcha çözme
 // ============================================
-async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3) {
+async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3, isLoginCaptcha = false) {
   try {
     if (retryCount === 0) {
       resetOCRStats();
@@ -222,7 +222,7 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3) {
         await driver.navigate().refresh();
         await driver.sleep(5000);
         if (retryCount < maxRetries) {
-          return await solveCaptchaInIframe(driver, retryCount + 1, maxRetries);
+          return await solveCaptchaInIframe(driver, retryCount + 1, maxRetries, isLoginCaptcha);
         }
         return;
       }
@@ -236,9 +236,6 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3) {
     await selectCaptchaBoxes(driver, targetNumber);
 
     const successRate = calculateOCRSuccessRate();
-    console.log(`\n📊 OCR Raporu: %${successRate.toFixed(1)} başarı oranı`);
-    console.log(`   🎯 Bulunan hedef: ${ocrStats.targetMatches} kutu ${ocrStats.targetMatches >= 3 ? '🎉' : ocrStats.targetMatches > 0 ? '👍' : '😅'}\n`);
-    
     // Çok düşük başarı kontrolü
     if (successRate < 20 && ocrStats.targetMatches === 0 && ocrStats.totalAttempts > 50) {
       console.log('⚠️ OCR başarı oranı çok düşük, captcha kesiliyor...');
@@ -264,7 +261,7 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3) {
           await driver.navigate().refresh();
           await driver.sleep(5000);
           if (retryCount < maxRetries) {
-            return await solveCaptchaInIframe(driver, retryCount + 1, maxRetries);
+            return await solveCaptchaInIframe(driver, retryCount + 1, maxRetries, isLoginCaptcha);
           }
           return;
         }
@@ -278,7 +275,7 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3) {
     if (alertPresent && retryCount < maxRetries) {
       console.log(`🔄 Captcha tekrar deneniyor (alert) (${retryCount + 1}/${maxRetries})`);
       await driver.sleep(2000 + Math.random() * 2000);
-      return await solveCaptchaInIframe(driver, retryCount + 1, maxRetries);
+      return await solveCaptchaInIframe(driver, retryCount + 1, maxRetries, isLoginCaptcha);
     }
 
     // Invalid captcha kontrolü
@@ -298,15 +295,21 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3) {
       }
     } catch (e) {}
 
-    if (invalid && retryCount < maxRetries) {
-      console.log(`🔄 Tekrar deneyelim! Pes etmiyoruz 💪 (${retryCount + 1}/${maxRetries})`);
-      await driver.sleep(3000 + Math.random() * 3000);
-      return await solveCaptchaInIframe(driver, retryCount + 1, maxRetries);
-    } else if (invalid) {
-      console.log('😢 Maksimum deneme aşıldı, captcha bu sefer olmadı...');
+    if (invalid) {
+      // Login captcha ise üst seviyeye fırlat (password kontrolü için)
+      // Diğer captcha'lar için kendi retry'ını yap
+      if (isLoginCaptcha) {
+        console.log('⚠️ Invalid login captcha - üst seviyede retry yapılacak (password kontrolü için)');
+        throw new Error('Invalid captcha - password kontrolü gerekli');
+      } else if (retryCount < maxRetries) {
+        console.log(`🔄 Tekrar deneyelim! Pes etmiyoruz 💪 (${retryCount + 1}/${maxRetries})`);
+        await driver.sleep(3000 + Math.random() * 3000);
+        return await solveCaptchaInIframe(driver, retryCount + 1, maxRetries, isLoginCaptcha);
+      } else {
+        console.log('😢 Maksimum deneme aşıldı, captcha bu sefer olmadı...');
+      }
     } else {
-      console.log('🎊 Captcha başarıyla çözüldü! Harika iş! 🥳');
-      await driver.sleep(1000);
+      await driver.sleep(500);
       
       // Kalan alertleri temizle
       try {
@@ -338,23 +341,37 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3) {
 
         if (alertText.includes('maximum number of captcha request')) {
           await alert.accept();
-          await driver.sleep(30000);
-          await driver.navigate().refresh();
-          await driver.sleep(5000);
-          if (retryCount < maxRetries) {
-            return await solveCaptchaInIframe(driver, retryCount + 1, maxRetries);
-          }
-          return;
+          console.log('😤 Rate limiting! Hata fırlatılıyor, üst seviyede yeniden denenecek...');
+          throw new Error('Rate limiting - sayfa refresh gerekli');
         }
         
         await alert.accept();
         await driver.sleep(500);
       }
-    } catch (e2) {}
+    } catch (e2) {
+      // e2 bizim fırlattığımız hata olabilir, tekrar fırlat
+      if (e2.message && e2.message.includes('Rate limiting')) {
+        throw e2;
+      }
+    }
     
+    // Login captcha için özel hatalar - direkt üst seviyeye fırlat (password kontrolü için)
+    if (e.message && (
+      e.message.includes('password kontrolü gerekli') ||
+      e.message.includes('Hedef sayı bulunamadı')
+    )) {
+      if (isLoginCaptcha) {
+        console.log('🔄 Hata üst seviyeye iletiliyor (password kontrolü için)...');
+        throw e;
+      }
+    }
+    
+    // Diğer hatalar için retry yap
     if (retryCount < maxRetries) {
       console.log(`🔄 Tekrar deneniyor... (${retryCount + 1}/${maxRetries})`);
-      return await solveCaptchaInIframe(driver, retryCount + 1, maxRetries);
+      return await solveCaptchaInIframe(driver, retryCount + 1, maxRetries, isLoginCaptcha);
+    } else {
+      throw e; // Maksimum deneme aşıldı, hatayı fırlat
     }
   }
 }
