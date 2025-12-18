@@ -636,7 +636,7 @@ async function main() {
         10000
       );
       console.log("📝 Dropdown'lar yüklendi, form dolduruluyor...\n");
-      await driver.sleep(1500);
+      await driver.sleep(1000);
 
       // Form doldurma - Label text'e göre
       const formSuccess = {
@@ -653,7 +653,7 @@ async function main() {
         console.log("❌ Jurisdiction seçilemedi, form gönderilemez!");
         throw new Error("Form doldurma başarısız: Jurisdiction");
       }
-      await driver.sleep(2000);
+      await driver.sleep(500);
 
       // 2. Location
       formSuccess.location = await selectKendoDropdownByLabel(driver, "Location", "Ankara");
@@ -661,7 +661,7 @@ async function main() {
         console.log("❌ Location seçilemedi, form gönderilemez!");
         throw new Error("Form doldurma başarısız: Location");
       }
-      await driver.sleep(2000);
+      await driver.sleep(500);
 
       // 3. Visa Type
       formSuccess.visaType = await selectKendoDropdownByLabel(driver, "Visa Type", "Schengen Visa/ Short Term Visa");
@@ -669,7 +669,7 @@ async function main() {
         console.log("❌ Visa Type seçilemedi, form gönderilemez!");
         throw new Error("Form doldurma başarısız: Visa Type");
       }
-      await driver.sleep(2000);
+      await driver.sleep(500);
 
       // 4. Visa Sub Type
       formSuccess.visaSubType = await selectKendoDropdownByLabel(driver, "Visa Sub Type", "Tourist Visa");
@@ -677,7 +677,7 @@ async function main() {
         console.log("❌ Visa Sub Type seçilemedi, form gönderilemez!");
         throw new Error("Form doldurma başarısız: Visa Sub Type");
       }
-      await driver.sleep(2000);
+      await driver.sleep(500);
 
       // 5. Appointment For (Radio button - atlıyoruz, varsayılan Individual seçili)
       console.log("\n📌 Appointment For: Individual (varsayılan)\n");
@@ -688,11 +688,11 @@ async function main() {
         console.log("❌ Category seçilemedi, form gönderilemez!");
         throw new Error("Form doldurma başarısız: Category");
       }
-      await driver.sleep(1500);
+      await driver.sleep(500);
       
       console.log("\n✅ TÜM FORM ALANLARI BAŞARIYLA DOLDURULDU!\n");
 
-      await driver.sleep(1000);
+      await driver.sleep(500);
 
       // "Application Temporarily Unavailable" kontrolü (submit öncesi)
       await checkAndHandleUnavailable(driver);
