@@ -1,0 +1,17 @@
+# Dependencies
+node_modules
+
+# Environment
+.env
+
+# Tesseract trained data
+*.traineddata
+
+# ChromeDriver
+chromedriver
+chromedriver.exe
+
+# Screenshots
+screenshots/
+*.png
+*.jpg
