@@ -335,7 +335,7 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3) {
         await driver.wait(until.alertIsPresent(), 1000);
         const alert = await driver.switchTo().alert();
         const alertText = await alert.getText();
-        
+
         if (alertText.includes('maximum number of captcha request')) {
           await alert.accept();
           await driver.sleep(30000);
@@ -426,8 +426,8 @@ async function selectCaptchaBoxes(driver, targetNumber) {
   
   console.log(`📦 Toplam ${boxImgs.length} kutu bulundu`);
   
-  // Görünür kutuları filtrele
-  let visibleBoxes = [];
+  // Tüm kutuları pozisyon ve z-index ile topla
+  const allBoxes = [];
   for (let [i, img] of boxImgs.entries()) {
     try {
       const rect = await img.getRect();
@@ -437,34 +437,55 @@ async function selectCaptchaBoxes(driver, targetNumber) {
       const zIndexRaw = await parentDiv.getCssValue('z-index');
       const zIndex = parseInt(zIndexRaw) || 1;
       
-      visibleBoxes.push({
+      // Pozisyon anahtarı (yuvarlanmış)
+      const posKey = `${Math.round(rect.y)}_${Math.round(rect.x)}`;
+      
+      allBoxes.push({
         index: i,
         img,
         parentDiv,
         zIndex,
-        rect
+        rect,
+        posKey
       });
     } catch (e) {}
   }
   
-  // Z-index'e göre sırala
-  visibleBoxes.sort((a, b) => b.zIndex - a.zIndex);
+  // POZİSYONA GÖRE GRUPLA ve her pozisyonda EN YÜKSEK Z-INDEX'li kutuyu seç
+  const positionMap = {};
+  for (const box of allBoxes) {
+    if (!positionMap[box.posKey]) {
+      positionMap[box.posKey] = [];
+    }
+    positionMap[box.posKey].push(box);
+  }
   
-  console.log(`👀 ${visibleBoxes.length} kutu gördüm!\n`);
-  console.log('═'.repeat(50));
-  console.log('🔍 Kutuları inceliyorum... Sabırlı ol! 🧐');
-  console.log('═'.repeat(50));
+  // Her pozisyonda en üstteki kutuyu al
+  const boxesToScan = [];
+  for (const [posKey, boxes] of Object.entries(positionMap)) {
+    // Z-index'e göre sırala (en yüksek önce)
+    boxes.sort((a, b) => b.zIndex - a.zIndex);
+    // En üsttekini al
+    boxesToScan.push(boxes[0]);
+  }
   
-  // Sadece ilk 20 kutuya bak (hız için)
-  const MAX_BOXES = 20;
-  const boxesToScan = visibleBoxes.slice(0, MAX_BOXES);
-  console.log(`⚡ Sadece ilk ${boxesToScan.length} kutu taranacak\n`);
+  // Pozisyona göre sırala (sol üstten sağ alta)
+  boxesToScan.sort((a, b) => {
+    if (Math.abs(a.rect.y - b.rect.y) > 20) return a.rect.y - b.rect.y;
+    return a.rect.x - b.rect.x;
+  });
+  
+  console.log(`👀 ${allBoxes.length} kutu gördüm, ${Object.keys(positionMap).length} benzersiz pozisyon!\n`);
+  console.log('═'.repeat(50));
+  console.log('🔍 Sadece EN ÜSTTEKİ kutuları tarıyorum! 🎯');
+  console.log('═'.repeat(50));
+  console.log(`⚡ ${boxesToScan.length} gerçek kutu taranacak\n`);
   
   let clickedCount = 0;
   
   for (let [idx, box] of boxesToScan.entries()) {
     const { index: i, img, parentDiv } = box;
-    
+
     try {
       // Base64 görüntüyü al
       const base64src = await img.getAttribute('src');
@@ -483,31 +504,45 @@ async function selectCaptchaBoxes(driver, targetNumber) {
         // Hedef sayı eşleşiyor mu?
         if (bestResult.text === targetNumber) {
           ocrStats.targetMatches++;
-          console.log(`\n🎯 Buldum! Kutu #${idx + 1} → ${bestResult.text} ✨`);
           
-          // HEMEN TIKLA - stale element olmadan
-          let clicked = false;
+          // 🛡️ ZATEN SEÇİLİ Mİ KONTROL ET - img-selected class'ı varsa tıklama!
+          let alreadySelected = false;
           try {
-            await parentDiv.click();
-            clicked = true;
-          } catch (e1) {
-            try {
-              await driver.executeScript('arguments[0].click();', parentDiv);
-              clicked = true;
-            } catch (e2) {
+            const imgClass = await img.getAttribute('class');
+            if (imgClass && imgClass.includes('img-selected')) {
+              alreadySelected = true;
+              console.log(`\n🎯 Kutu #${idx + 1} → ${bestResult.text} (zaten seçili ✓)`);
+              clickedCount++; // Sayıya dahil et ama tıklama
+            }
+          } catch (e) {}
+          
+          if (!alreadySelected) {
+            console.log(`\n🎯 Buldum! Kutu #${idx + 1} → ${bestResult.text} ✨`);
+            
+            // HEMEN TIKLA - stale element olmadan
+        let clicked = false;
+        try {
+          await parentDiv.click();
+          clicked = true;
+            } catch (e1) {
               try {
-                await img.click();
+                await driver.executeScript('arguments[0].click();', parentDiv);
                 clicked = true;
-              } catch (e3) {
-                await driver.executeScript('arguments[0].click();', img);
-                clicked = true;
+              } catch (e2) {
+          try {
+            await img.click();
+            clicked = true;
+                } catch (e3) {
+                  await driver.executeScript('arguments[0].click();', img);
+            clicked = true;
+                }
               }
             }
-          }
-          
-          if (clicked) {
-            clickedCount++;
-            console.log(`   👆 Tık! Seçildi 💚`);
+            
+            if (clicked) {
+              clickedCount++;
+              console.log(`   👆 Tık! Seçildi 💚`);
+            }
           }
         } else {
           // Sadece yüksek oylu sonuçları göster
@@ -545,7 +580,7 @@ async function selectCaptchaBoxes(driver, targetNumber) {
       await driver.sleep(300);
       await driver.executeScript("arguments[0].click();", elem);
       console.log(`   ✅ Submit başarılı (${method.name})`);
-      submitted = true;
+    submitted = true;
     } catch (e) {}
   }
   
