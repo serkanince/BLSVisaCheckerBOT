@@ -599,6 +599,22 @@ async function main() {
       // Captcha sayfası mı?
       const hasCaptcha = !hasSlotSelectionTitle && postSubmitPageSource.includes('Please select all boxes');
       
+      // "No slots available" mesajı kontrolü
+      const noSlotsMessage = postSubmitPageSource.includes('Currently, no slots are available');
+      
+      if (noSlotsMessage) {
+        console.log("⚠️ RANDEVULAR KAPALI: Currently, no slots are available");
+        console.log("Seçilen kategori için şu anda randevu yok.");
+        
+        try {
+          await notifyAppointmentsClosed();
+        } catch (e) {
+          console.log("Telegram bildirimi gönderilemedi");
+        }
+        
+        return; // Script'i sonlandır
+      }
+      
       // Randevu kapalı mı? (Error sayfası veya farklı bir sayfa)
       const isAppointmentClosed = !hasSlotSelectionTitle && !hasCaptcha && 
                                    (postSubmitPageSource.includes('No appointments available') ||
@@ -622,6 +638,20 @@ async function main() {
         // Captcha sonrası tekrar kontrol
         const afterCaptchaPageSource = await driver.getPageSource();
         const afterCaptchaHasSlotTitle = afterCaptchaPageSource.includes('Book New Appointment - Slot Selection');
+        const noSlotsAvailable = afterCaptchaPageSource.includes('Currently, no slots are available');
+        
+        if (noSlotsAvailable) {
+          console.log("⚠️ RANDEVULAR KAPALI: Currently, no slots are available");
+          console.log("Seçilen kategori için şu anda randevu yok.");
+          
+          try {
+            await notifyAppointmentsClosed();
+          } catch (e) {
+            console.log("Telegram bildirimi gönderilemedi");
+          }
+          
+          return; // Script'i sonlandır
+        }
         
         if (!afterCaptchaHasSlotTitle) {
           console.log("❌ Captcha sonrası Slot Selection sayfasına yönlendirilemedi!");
