@@ -217,7 +217,7 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3) {
     try {
       const rateLimitElems = await driver.findElements(By.xpath("//*[contains(text(), 'maximum number of captcha request') or contains(text(), 'Please try after sometime')]"));
       if (rateLimitElems.length > 0) {
-        console.log('⚠️ Rate limiting hatası! 30 saniye bekleniyor...');
+        console.log('😤 Rate limiting! Biraz sakinleşelim... 30 saniye mola ☕');
         await driver.sleep(30000);
         await driver.navigate().refresh();
         await driver.sleep(5000);
@@ -230,14 +230,14 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3) {
 
     // Hedef sayıyı bul
     const targetNumber = await findTargetNumber(driver);
-    console.log(`\n🎯 HEDEF SAYI: ${targetNumber}\n`);
+    console.log(`\n🎯 Hedef sayımız: ${targetNumber} - Hadi onu bulalım! 💪\n`);
     
     // Kutuları seç
     await selectCaptchaBoxes(driver, targetNumber);
 
     const successRate = calculateOCRSuccessRate();
-    console.log(`\n📊 OCR Özeti: ${successRate.toFixed(1)}% başarı (${ocrStats.threeDigitReads}/${ocrStats.totalAttempts})`);
-    console.log(`   ✅ Bulunan hedef kutu: ${ocrStats.targetMatches}\n`);
+    console.log(`\n📊 OCR Raporu: %${successRate.toFixed(1)} başarı oranı`);
+    console.log(`   🎯 Bulunan hedef: ${ocrStats.targetMatches} kutu ${ocrStats.targetMatches >= 3 ? '🎉' : ocrStats.targetMatches > 0 ? '👍' : '😅'}\n`);
     
     // Çok düşük başarı kontrolü
     if (successRate < 20 && ocrStats.targetMatches === 0 && ocrStats.totalAttempts > 50) {
@@ -299,13 +299,13 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3) {
     } catch (e) {}
 
     if (invalid && retryCount < maxRetries) {
-      console.log(`🔄 Captcha tekrar deneniyor... (${retryCount + 1}/${maxRetries})`);
+      console.log(`🔄 Tekrar deneyelim! Pes etmiyoruz 💪 (${retryCount + 1}/${maxRetries})`);
       await driver.sleep(3000 + Math.random() * 3000);
       return await solveCaptchaInIframe(driver, retryCount + 1, maxRetries);
     } else if (invalid) {
-      console.log('❌ Maksimum deneme aşıldı, captcha başarısız.');
+      console.log('😢 Maksimum deneme aşıldı, captcha bu sefer olmadı...');
     } else {
-      console.log('✅ Captcha başarıyla çözüldü!');
+      console.log('🎊 Captcha başarıyla çözüldü! Harika iş! 🥳');
       await driver.sleep(1000);
       
       // Kalan alertleri temizle
@@ -484,9 +484,9 @@ async function selectCaptchaBoxes(driver, targetNumber) {
   // Z-index'e göre sırala
   visibleBoxes.sort((a, b) => b.zIndex - a.zIndex);
   
-  console.log(`👁️ ${visibleBoxes.length} görünür kutu bulundu\n`);
+  console.log(`👀 ${visibleBoxes.length} kutu gördüm!\n`);
   console.log('═'.repeat(50));
-  console.log('🔍 OCR TARAMASI BAŞLIYOR (Anında Tıklama Modu)');
+  console.log('🔍 Kutuları inceliyorum... Sabırlı ol! 🧐');
   console.log('═'.repeat(50));
   
   // Sadece ilk 20 kutuya bak (hız için)
@@ -517,7 +517,7 @@ async function selectCaptchaBoxes(driver, targetNumber) {
         // Hedef sayı eşleşiyor mu?
         if (bestResult.text === targetNumber) {
           ocrStats.targetMatches++;
-          console.log(`\n✅ Kutu #${idx + 1} HEDEF! ${bestResult.text} (${bestResult.votes} oy)`);
+          console.log(`\n🎯 Buldum! Kutu #${idx + 1} → ${bestResult.text} ✨`);
           
           // HEMEN TIKLA - stale element olmadan
           let clicked = false;
@@ -541,7 +541,7 @@ async function selectCaptchaBoxes(driver, targetNumber) {
           
           if (clicked) {
             clickedCount++;
-            console.log(`   🖱️ Tıklandı!`);
+            console.log(`   👆 Tık! Seçildi 💚`);
             await driver.sleep(150);
           }
         } else {
@@ -557,7 +557,8 @@ async function selectCaptchaBoxes(driver, targetNumber) {
   }
   
   console.log('\n' + '═'.repeat(50));
-  console.log(`📊 SONUÇ: ${clickedCount} kutu tıklandı`);
+  const resultEmoji = clickedCount >= 3 ? '🎉' : clickedCount > 0 ? '👍' : '😅';
+  console.log(`${resultEmoji} ${clickedCount} kutu tıklandı! ${clickedCount >= 3 ? 'Mükemmel!' : clickedCount > 0 ? 'İyi gidiyoruz!' : 'Hmm, bi daha deneyelim...'}`);
   console.log('═'.repeat(50));
 
   // Submit butonu

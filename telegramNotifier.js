@@ -26,9 +26,10 @@ const sendMessageToTelegram = async (message, parseMode = 'Markdown') => {
 
 // 🎉 RANDEVU BULUNDU - Yeşil tarihlerle
 const notifyAppointmentFound = async (availableDates) => {
-  const header = "🎉🎉🎉 *RANDEVU TARİHLERİ BULUNDU!* 🎉🎉🎉\n\n";
+  const header = "🎊🎉✨ *MUHTEŞEM HABER!* ✨🎉🎊\n";
+  const subHeader = "🇪🇸 *RANDEVU TARİHLERİ AÇILDI!* 🇪🇸\n\n";
   
-  const summary = `✅ *Toplam ${availableDates.length} uygun tarih*\n\n`;
+  const summary = `🌟 *${availableDates.length} harika tarih seni bekliyor!*\n\n`;
   
   // Tarihleri aya göre grupla
   const datesByMonth = {};
@@ -40,119 +41,118 @@ const notifyAppointmentFound = async (availableDates) => {
   }
   
   // Gruplanmış tarihleri ekle
-  let datesText = "📅 *Uygun Tarihler:*\n";
+  let datesText = "📅 *Müsait Tarihler:*\n";
   for (const [month, dates] of Object.entries(datesByMonth)) {
     datesText += `\n🗓 *${month}*\n`;
-    datesText += `   ${dates.join(', ')}\n`;
+    datesText += `   💚 ${dates.join(' • ')}\n`;
   }
   
-  const location = "\n📍 *Lokasyon:* Ankara\n";
-  const visaType = "🎫 *Vize Tipi:* Schengen Turist Vizesi\n\n";
+  const location = "\n📍 *Nereden:* Ankara 🏛\n";
+  const visaType = "🎫 *Ne için:* Schengen Turist Vizesi ✈️\n\n";
   
-  const action = "⚡️ *HEMEN GİRİŞ YAPIN:*\n";
-  const link = "🔗 [BLS Spain Turkey Portal](https://turkey.blsspainglobal.com/Global/Account/LogIn)\n\n";
+  const action = "🚀 *HEMEN KOŞŞŞ:*\n";
+  const link = "🔗 [BLS Spain Portal'a Git!](https://turkey.blsspainglobal.com/Global/Account/LogIn)\n\n";
   
   const footer = "⏰ " + new Date().toLocaleString('tr-TR') + "\n";
-  const warning = "⚠️ Randevular hızla dolabilir!";
+  const warning = "⚡️ _Hızlı ol! Randevular uçuyor!_ 🏃‍♂️💨";
   
-  const message = header + summary + datesText + location + visaType + action + link + footer + warning;
+  const message = header + subHeader + summary + datesText + location + visaType + action + link + footer + warning;
   
   return await sendMessageToTelegram(message);
 };
 
-// ❌ HİÇBİR TARİH YOK
+// 😔 HİÇBİR TARİH YOK
 const notifyNoAppointments = async (monthsScanned) => {
-  const header = "❌ *RANDEVU BULUNAMADI*\n\n";
+  const header = "😔 *Bugün de olmadı...*\n\n";
   
-  const info = `🔍 *${monthsScanned} ay tarandı*\n`;
-  const result = "📅 Hiçbir uygun tarih bulunamadı\n\n";
+  const info = `🔍 ${monthsScanned} ay boyunca baktım\n`;
+  const result = "📅 Hiç müsait tarih yok şu an 😢\n\n";
   
-  const location = "📍 *Lokasyon:* Ankara\n";
-  const visaType = "🎫 *Vize Tipi:* Schengen Turist Vizesi\n\n";
+  const location = "📍 Ankara\n";
+  const visaType = "🎫 Schengen Turist\n\n";
   
   const footer = "⏰ " + new Date().toLocaleString('tr-TR') + "\n";
-  const note = "ℹ️ Bot otomatik olarak kontrol etmeye devam edecek";
+  const note = "💪 _Ama pes etmiyoruz! Aramaya devam..._";
   
   const message = header + info + result + location + visaType + footer + note;
   
   return await sendMessageToTelegram(message);
 };
 
-// 🚫 RANDEVULAR KAPALI
+// 🔒 RANDEVULAR KAPALI
 const notifyAppointmentsClosed = async () => {
-  const header = "🚫 *RANDEVULAR TAMAMEN KAPALI*\n\n";
+  const header = "🔒 *Kapılar Kapalı* 🚪\n\n";
   
-  const info = "⚠️ Slot seçim ekranı açılmadı\n";
-  const reason = "📋 Form gönderildikten sonra slot sayfasına yönlendirilmedi\n\n";
+  const info = "😞 Randevu sistemi şu an kapalı\n";
+  const reason = "🇪🇸 İspanya bu kategori için randevu vermiyor\n\n";
   
-  const location = "📍 *Lokasyon:* Ankara\n";
-  const visaType = "🎫 *Vize Tipi:* Schengen Turist Vizesi\n\n";
+  const location = "📍 Ankara\n";
+  const visaType = "🎫 Schengen Turist\n\n";
   
   const footer = "⏰ " + new Date().toLocaleString('tr-TR') + "\n";
-  const note = "ℹ️ Bot kontrol etmeye devam edecek";
+  const note = "🤞 _Umarım yakında açılır, gözüm üstünde!_";
   
   const message = header + info + reason + location + visaType + footer + note;
   
   return await sendMessageToTelegram(message);
 };
 
-// ⚠️ FORM DOLDURMA HATASI
+// 🤔 FORM DOLDURMA HATASI
 const notifyFormError = async (errorStep) => {
-  const header = "⚠️ *FORM DOLDURMA HATASI*\n\n";
+  const header = "🤔 *Bir Aksilik Oldu*\n\n";
   
-  const error = `❌ *Hata:* ${errorStep}\n`;
-  const info = "📋 Form dropdown'ları doldurulamadı\n\n";
+  const error = `📝 Form doldurulamadı:\n_${errorStep}_\n\n`;
   
   const footer = "⏰ " + new Date().toLocaleString('tr-TR') + "\n";
-  const note = "ℹ️ Sonraki denemede tekrar denenecek";
+  const note = "🔄 _Sorun değil, tekrar denerim!_";
   
-  const message = header + error + info + footer + note;
+  const message = header + error + footer + note;
   
   return await sendMessageToTelegram(message);
 };
 
-// 🔒 CAPTCHA HATASI
+// 🧩 CAPTCHA HATASI
 const notifyCaptchaError = async (retryCount) => {
-  const header = "🔒 *CAPTCHA ÇÖZME HATASI*\n\n";
+  const header = "🧩 *Captcha Zor Geldi* 😅\n\n";
   
-  const info = `🔄 *Deneme Sayısı:* ${retryCount}/3\n`;
-  const status = "❌ Captcha çözülemedi veya yanlış çözüldü\n\n";
+  const info = `🔢 Deneme: ${retryCount}/3\n`;
+  const status = "🤖 O bulmacayı çözemedim bu sefer\n\n";
   
   const footer = "⏰ " + new Date().toLocaleString('tr-TR') + "\n";
-  const note = "ℹ️ Tekrar denenecek...";
+  const note = "🎯 _Bir daha deniyorum, bu sefer çözerim!_";
   
   const message = header + info + status + footer + note;
   
   return await sendMessageToTelegram(message);
 };
 
-// ✅ BOT BAŞLADI
+// 🚀 BOT BAŞLADI
 const notifyBotStarted = async () => {
-  const header = "✅ *BLS VİZE BOT BAŞLATILDI*\n\n";
+  const header = "🚀 *Merhaba! Göreve Hazırım* 👋\n\n";
   
-  const info = "🤖 Bot aktif ve randevu aramaya başladı\n\n";
+  const info = "🤖 İspanya vizesi avcısı aktif!\n\n";
   
-  const settings = "⚙️ *Ayarlar:*\n";
-  const location = "   📍 Lokasyon: Ankara\n";
-  const visaType = "   🎫 Vize: Schengen Turist\n";
-  const interval = "   ⏱ Kontrol: Her 15 dakikada\n\n";
+  const settings = "⚙️ *Ne yapıyorum:*\n";
+  const location = "   📍 Ankara'dan bakıyorum\n";
+  const visaType = "   🎫 Schengen Turist arıyorum\n";
+  const interval = "   ⏱ Her 10 dakika kontrol\n\n";
   
   const footer = "⏰ " + new Date().toLocaleString('tr-TR') + "\n";
-  const note = "✨ Randevu bulunduğunda bildirim alacaksınız!";
+  const note = "🔔 _Randevu açılınca hemen haber veririm!_ ✨";
   
   const message = header + info + settings + location + visaType + interval + footer + note;
   
   return await sendMessageToTelegram(message);
 };
 
-// 🛑 BOT DURDURULDU / HATA
+// 😵 BOT DURDURULDU / HATA
 const notifyBotError = async (errorMessage) => {
-  const header = "🛑 *BOT HATASI*\n\n";
+  const header = "😵 *Hay aksi! Bir şeyler ters gitti*\n\n";
   
-  const error = `❌ *Hata:* ${errorMessage}\n\n`;
+  const error = `🐛 _${errorMessage}_\n\n`;
   
   const footer = "⏰ " + new Date().toLocaleString('tr-TR') + "\n";
-  const note = "⚠️ Bot tekrar başlatılacak...";
+  const note = "🔧 _Kendimi tamir edip geliyorum!_ 🏃‍♂️";
   
   const message = header + error + footer + note;
   
