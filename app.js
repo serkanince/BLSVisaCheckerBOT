@@ -308,13 +308,14 @@ async function main() {
           if (loginRetries > 0) {
             console.log(`\n🔄 Login tekrar deneniyor (${loginRetries + 1}/${maxLoginRetries})...`);
             
-            // Sayfa refresh olduysa tekrar email gir
+            await driver.sleep(2000);
             const currentUrl = await driver.getCurrentUrl();
+            
+            // Sayfa refresh olduysa tekrar email gir
             if (currentUrl.includes('/Account/LogIn')) {
               console.log("Login sayfasına geri döndük, tekrar email giriliyor...");
               
               // Email input bul ve doldur
-              await driver.sleep(2000);
               const retryEmailInputs = await driver.findElements(By.css('input[type="text"]'));
               for (let input of retryEmailInputs) {
                 try {
@@ -329,27 +330,34 @@ async function main() {
                     await driver.sleep(1000);
                     await driver.findElement(By.id("btnVerify")).click();
                     await driver.sleep(3000);
-                    
-                    // Password sayfası - password gir
-                    const retryPasswords = await driver.findElements(By.css('input[type="password"]'));
-                    for (let passInput of retryPasswords) {
-                      try {
-                        const passDisplayed = await passInput.isDisplayed();
-                        const passRect = await passInput.getRect();
-                        if (passDisplayed && passRect.width > 50) {
-                          await driver.executeScript("arguments[0].value = '';", passInput);
-                          await passInput.sendKeys(PASSWORD);
-                          console.log("✅ Password tekrar girildi!");
-                          break;
-                        }
-                      } catch (e) {}
-                    }
-                    await driver.sleep(2000);
                     break;
                   }
                 } catch (e) {}
               }
             }
+            
+            // Password alanını kontrol et ve doldur (her retry'da)
+            console.log("Password alanı kontrol ediliyor...");
+            const retryPasswords = await driver.findElements(By.css('input[type="password"]'));
+            for (let passInput of retryPasswords) {
+              try {
+                const passDisplayed = await passInput.isDisplayed();
+                const passRect = await passInput.getRect();
+                if (passDisplayed && passRect.width > 50) {
+                  // Password değerini kontrol et
+                  const currentValue = await passInput.getAttribute('value');
+                  if (!currentValue || currentValue.length === 0) {
+                    await driver.executeScript("arguments[0].value = '';", passInput);
+                    await passInput.sendKeys(PASSWORD);
+                    console.log("✅ Password tekrar girildi!");
+                  } else {
+                    console.log("✅ Password zaten dolu");
+                  }
+                  break;
+                }
+              } catch (e) {}
+            }
+            await driver.sleep(1000);
           }
           
           console.log("Login captcha çözülüyor...");
