@@ -15,3 +15,6 @@ chromedriver.exe
 screenshots/
 *.png
 *.jpg
+
+# Captcha debug images
+numbers_img/

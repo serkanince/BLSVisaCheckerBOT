@@ -119,20 +119,29 @@ async function processImageForOCR(imgBuffer, config) {
 // TURBO MOD: 5 yöntem + erken çıkış
 // ============================================
 async function runOCRWithVoting(imgBuffer, boxIndex) {
-  // 5 OCR konfigürasyonu - MAKSIMUM HIZ
+  // 8 OCR konfigürasyonu - YEŞİL YAZI + PEMBE ARKA PLAN İÇİN OPTİMİZE
   const ocrConfigs = [
     // === TEMEL (en hızlı) ===
     { name: 'fast_1', threshold: 150, resize: 2, contrast: 1.6, brightness: 1.2, normalize: true, sharpen: true },
     { name: 'fast_2', threshold: 180, resize: 2, contrast: 2.0, brightness: 1.4, normalize: true, sharpen: true },
     
+    // === YEŞİL KANAL (yeşil yazı için PERFECT!) ===
+    { name: 'green', channel: 'green', threshold: 140, resize: 2, contrast: 2.0, brightness: 1.2, normalize: true, sharpen: true },
+    
+    // === KIRMIZI KANAL + INVERT (pembe arka plan yakalar, invert ile yeşil yazı çıkar) ===
+    { name: 'red_inv', channel: 'red', threshold: 130, resize: 2, contrast: 1.8, brightness: 1.3, invert: true, normalize: true, sharpen: true },
+    
     // === MEDİAN (çizgili rakamlar) ===
     { name: 'median', threshold: 160, resize: 2, contrast: 1.8, brightness: 1.3, median: 3, normalize: true, sharpen: true },
     
-    // === RENK KANALI ===
+    // === MAVİ KANAL ===
     { name: 'blue', channel: 'blue', threshold: 150, resize: 2, contrast: 1.7, brightness: 1.3, normalize: true, sharpen: true },
     
-    // === TERS ===
-    { name: 'invert', threshold: 120, resize: 2, contrast: 1.8, brightness: 1.4, invert: true, normalize: true, sharpen: true },
+    // === DÜŞÜK THRESHOLD (koyu yazılar) ===
+    { name: 'low_thr', threshold: 100, resize: 2, contrast: 2.2, brightness: 1.5, normalize: true, sharpen: true },
+    
+    // === YÜKSEK THRESHOLD + INVERT (açık yazılar) ===
+    { name: 'high_inv', threshold: 200, resize: 2, contrast: 1.8, brightness: 1.4, invert: true, normalize: true, sharpen: true },
   ];
   
   // Voting için sonuçları topla
