@@ -42,12 +42,12 @@ async function processImageForOCR(imgBuffer, config) {
       pipeline = pipeline.grayscale();
     }
     
-    // 2. Boyutlandırma (çok önemli - büyük görüntü = daha iyi OCR)
-    const resizeFactor = config.resize || 4;
+    // 2. Boyutlandırma (hız için optimize - 2x yeterli)
+    const resizeFactor = config.resize || 2;
     pipeline = pipeline.resize({
-      width: 150 * resizeFactor,
-      height: 80 * resizeFactor,
-      kernel: config.kernel || sharp.kernel.lanczos3,
+      width: 120 * resizeFactor,
+      height: 60 * resizeFactor,
+      kernel: sharp.kernel.nearest, // En hızlı kernel
       fit: 'fill'
     });
     
@@ -116,36 +116,29 @@ async function processImageForOCR(imgBuffer, config) {
 
 // ============================================
 // YARDIMCI: Tek bir kutu için OCR çalıştır
-// HIZLI MOD: 8 yöntem + erken çıkış
+// TURBO MOD: 5 yöntem + erken çıkış
 // ============================================
 async function runOCRWithVoting(imgBuffer, boxIndex) {
-  // 8 OCR konfigürasyonu - hız/doğruluk dengesi
+  // 5 OCR konfigürasyonu - MAKSIMUM HIZ
   const ocrConfigs = [
-    // === EN ETKİLİ TEMEL YÖNTEMLER ===
-    { name: 'basic_1', threshold: 150, resize: 3, contrast: 1.6, brightness: 1.2, normalize: true, sharpen: true },
-    { name: 'basic_2', threshold: 170, resize: 3, contrast: 1.8, brightness: 1.3, normalize: true, sharpen: true },
+    // === TEMEL (en hızlı) ===
+    { name: 'fast_1', threshold: 150, resize: 2, contrast: 1.6, brightness: 1.2, normalize: true, sharpen: true },
+    { name: 'fast_2', threshold: 180, resize: 2, contrast: 2.0, brightness: 1.4, normalize: true, sharpen: true },
     
-    // === YÜKSEK KONTRAST ===
-    { name: 'high_contrast', threshold: 200, resize: 3, contrast: 2.2, brightness: 1.5, normalize: true, sharpen: true },
+    // === MEDİAN (çizgili rakamlar) ===
+    { name: 'median', threshold: 160, resize: 2, contrast: 1.8, brightness: 1.3, median: 3, normalize: true, sharpen: true },
     
-    // === MEDİAN BLUR (çizgili rakamlar için) ===
-    { name: 'median', threshold: 160, resize: 3, contrast: 1.7, brightness: 1.3, median: 3, normalize: true, sharpen: true },
+    // === RENK KANALI ===
+    { name: 'blue', channel: 'blue', threshold: 150, resize: 2, contrast: 1.7, brightness: 1.3, normalize: true, sharpen: true },
     
-    // === RENK KANALLARI (en etkili: blue) ===
-    { name: 'blue_ch', channel: 'blue', threshold: 150, resize: 3, contrast: 1.7, brightness: 1.3, normalize: true, sharpen: true },
-    { name: 'green_ch', channel: 'green', threshold: 150, resize: 3, contrast: 1.7, brightness: 1.3, normalize: true, sharpen: true },
-    
-    // === TERS RENKLER ===
-    { name: 'inverted', threshold: 110, resize: 3, contrast: 1.8, brightness: 1.4, invert: true, normalize: true, sharpen: true },
-    
-    // === DÜŞÜK THRESHOLD ===
-    { name: 'low_thresh', threshold: 120, resize: 3, contrast: 1.5, brightness: 1.1, normalize: true, sharpen: true },
+    // === TERS ===
+    { name: 'invert', threshold: 120, resize: 2, contrast: 1.8, brightness: 1.4, invert: true, normalize: true, sharpen: true },
   ];
   
   // Voting için sonuçları topla
   const results = {};
   const allResults = [];
-  const EARLY_EXIT_VOTES = 4; // 4+ oy alınca dur
+  const EARLY_EXIT_VOTES = 3; // 3+ oy alınca dur (hız için)
   
   for (const config of ocrConfigs) {
     try {
@@ -496,10 +489,14 @@ async function selectCaptchaBoxes(driver, targetNumber) {
   console.log('🔍 OCR TARAMASI BAŞLIYOR (Anında Tıklama Modu)');
   console.log('═'.repeat(50));
   
-  // Her kutuyu tara ve hedef bulunca HEMEN tıkla
+  // Sadece ilk 20 kutuya bak (hız için)
+  const MAX_BOXES = 20;
+  const boxesToScan = visibleBoxes.slice(0, MAX_BOXES);
+  console.log(`⚡ Sadece ilk ${boxesToScan.length} kutu taranacak\n`);
+  
   let clickedCount = 0;
   
-  for (let [idx, box] of visibleBoxes.entries()) {
+  for (let [idx, box] of boxesToScan.entries()) {
     const { index: i, img, parentDiv } = box;
     
     try {
@@ -520,7 +517,7 @@ async function selectCaptchaBoxes(driver, targetNumber) {
         // Hedef sayı eşleşiyor mu?
         if (bestResult.text === targetNumber) {
           ocrStats.targetMatches++;
-          console.log(`\n[${idx + 1}/${visibleBoxes.length}] ✅ HEDEF! ${bestResult.text} (${bestResult.votes} oy)`);
+          console.log(`\n✅ Kutu #${idx + 1} HEDEF! ${bestResult.text} (${bestResult.votes} oy)`);
           
           // HEMEN TIKLA - stale element olmadan
           let clicked = false;
@@ -550,7 +547,7 @@ async function selectCaptchaBoxes(driver, targetNumber) {
         } else {
           // Sadece yüksek oylu sonuçları göster
           if (bestResult.votes >= 5) {
-            console.log(`[${idx + 1}/${visibleBoxes.length}] ${bestResult.text} (${bestResult.votes} oy)`);
+            console.log(`   Kutu #${idx + 1}: ${bestResult.text} (${bestResult.votes} oy)`);
           }
         }
       }
