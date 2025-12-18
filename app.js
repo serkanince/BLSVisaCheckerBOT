@@ -5,7 +5,8 @@ const {
   notifyNoAppointments,
   notifyAppointmentsClosed,
   notifyFormError,
-  notifyBotError
+  notifyBotError,
+  notifySlotPageReached
 } = require("./telegramNotifier");
 
 require("dotenv").config();
@@ -701,6 +702,14 @@ async function main() {
       
       if (!visibleDatePicker) {
         console.log("❌ Hiçbir date picker bulunamadı!");
+        console.log("🔔 AMA SLOT SAYFASINA ULAŞILDI! Manuel kontrol öneriliyor...");
+        
+        try {
+          await notifySlotPageReached("Date picker bulunamadı ama slot sayfası açık!");
+        } catch (e) {
+          console.log("Telegram bildirimi gönderilemedi");
+        }
+        
         throw new Error("Date picker bulunamadı");
       }
       
@@ -768,6 +777,15 @@ async function main() {
       
       if (!calendarOpened) {
         console.log("❌ Hiçbir yöntemle takvim açılamadı!");
+        console.log("🔔 AMA SLOT SAYFASINA ULAŞILDI! Manuel kontrol öneriliyor...");
+        
+        // Slot sayfasına ulaşıldı ama takvim açılamadı - bu önemli!
+        try {
+          await notifySlotPageReached("Takvim açılamadı ama slot sayfası açık!");
+        } catch (e) {
+          console.log("Telegram bildirimi gönderilemedi");
+        }
+        
         throw new Error("Takvim açılamadı - tüm yöntemler denendi");
       }
       
@@ -783,6 +801,14 @@ async function main() {
         console.log(`Debug: ${anyCalendar.length} takvim benzeri element bulundu`);
         
         if (anyCalendar.length === 0) {
+          console.log("🔔 Slot sayfasına ulaşıldı ama takvim elementi yok!");
+          
+          try {
+            await notifySlotPageReached("Takvim elementi bulunamadı ama slot sayfası açık!");
+          } catch (e) {
+            console.log("Telegram bildirimi gönderilemedi");
+          }
+          
           throw new Error("Takvim açılamadı - hiçbir takvim elementi yok");
         }
       }

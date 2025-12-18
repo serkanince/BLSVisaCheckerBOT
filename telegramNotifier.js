@@ -159,6 +159,28 @@ const notifyBotError = async (errorMessage) => {
   return await sendMessageToTelegram(message);
 };
 
+// 🔔 SLOT SAYFASI AÇIK AMA OKUNAMIYOR
+const notifySlotPageReached = async (errorDetail) => {
+  const header = "🔔🔔🔔 *DİKKAT!* 🔔🔔🔔\n\n";
+  
+  const good = "✅ *SLOT SEÇİM SAYFASINA ULAŞILDI!*\n\n";
+  const bad = `⚠️ Takvim okunamadı: _${errorDetail}_\n\n`;
+  
+  const important = "🚨 *BU ÖNEMLİ!*\n";
+  const meaning = "📅 Slot seçim sayfası açık = Randevu VAR olabilir!\n\n";
+  
+  const action = "👉 *HEMEN MANUEL KONTROL ET:*\n";
+  const link = "🔗 [BLS Spain Portal](https://turkey.blsspainglobal.com/Global/Account/LogIn)\n\n";
+  
+  const location = "📍 Ankara | 🎫 Schengen Turist\n";
+  const footer = "⏰ " + new Date().toLocaleString('tr-TR') + "\n\n";
+  const note = "⚡️ _Bot takvimi okuyamadı ama sen bakabilirsin!_";
+  
+  const message = header + good + bad + important + meaning + action + link + location + footer + note;
+  
+  return await sendMessageToTelegram(message);
+};
+
 module.exports = {
   sendMessageToTelegram,
   notifyAppointmentFound,
@@ -167,5 +189,6 @@ module.exports = {
   notifyFormError,
   notifyCaptchaError,
   notifyBotStarted,
-  notifyBotError
+  notifyBotError,
+  notifySlotPageReached
 };
