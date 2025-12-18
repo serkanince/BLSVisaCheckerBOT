@@ -365,23 +365,6 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3) {
 async function findTargetNumber(driver) {
   let isInIframe = false;
   
-  // Iframe'e geç
-  try {
-    await driver.wait(until.elementLocated(By.css('iframe[title="Verify Selection"]')), 3000);
-    const captchaFrame = await driver.findElement(By.css('iframe[title="Verify Selection"]'));
-    isInIframe = true;
-    await driver.switchTo().frame(captchaFrame);
-  } catch (e) {
-    try {
-      await driver.wait(until.elementLocated(By.css('iframe[title="Verify Registration"]')), 3000);
-      const captchaFrame = await driver.findElement(By.css('iframe[title="Verify Registration"]'));
-      isInIframe = true;
-      await driver.switchTo().frame(captchaFrame);
-    } catch (e2) {
-      console.log('ℹ️ Iframe yok, captcha doğrudan sayfada');
-    }
-  }
-
   // Hedef sayı metnini bul
   let labelDivs = await driver.findElements(By.css('div.box-label'));
   
@@ -434,23 +417,6 @@ async function findTargetNumber(driver) {
 async function selectCaptchaBoxes(driver, targetNumber) {
   let isInIframe = false;
   
-  // Iframe'e geç
-  try {
-    await driver.wait(until.elementLocated(By.css('iframe[title="Verify Selection"]')), 3000);
-    const captchaFrame = await driver.findElement(By.css('iframe[title="Verify Selection"]'));
-    isInIframe = true;
-    await driver.switchTo().frame(captchaFrame);
-  } catch (e) {
-    try {
-      await driver.wait(until.elementLocated(By.css('iframe[title="Verify Registration"]')), 3000);
-      const captchaFrame = await driver.findElement(By.css('iframe[title="Verify Registration"]'));
-      isInIframe = true;
-      await driver.switchTo().frame(captchaFrame);
-    } catch (e2) {
-      console.log('ℹ️ Iframe yok, doğrudan sayfada çalışılıyor');
-    }
-  }
-
   // Kutuları bul
   let boxImgs = await driver.findElements(By.css('div.col-4 img'));
   
@@ -542,7 +508,6 @@ async function selectCaptchaBoxes(driver, targetNumber) {
           if (clicked) {
             clickedCount++;
             console.log(`   👆 Tık! Seçildi 💚`);
-            await driver.sleep(150);
           }
         } else {
           // Sadece yüksek oylu sonuçları göster
