@@ -26,6 +26,13 @@ const sendMessageToTelegram = async (message, parseMode = 'Markdown') => {
 
 // 🎉 RANDEVU BULUNDU - Yeşil tarihlerle
 const notifyAppointmentFound = async (availableDates) => {
+  // Category bilgisini al (varsa)
+  const category = availableDates.length > 0 && availableDates[0].category 
+    ? availableDates[0].category 
+    : "Normal";
+  
+  const categoryEmoji = category === "Premium" ? "⭐️" : "🎫";
+  
   const header = "🎊🎉✨ *MUHTEŞEM HABER!* ✨🎉🎊\n";
   const subHeader = "🇪🇸 *RANDEVU TARİHLERİ AÇILDI!* 🇪🇸\n\n";
   
@@ -48,7 +55,8 @@ const notifyAppointmentFound = async (availableDates) => {
   }
   
   const location = "\n📍 *Nereden:* Ankara 🏛\n";
-  const visaType = "🎫 *Ne için:* Schengen Turist Vizesi ✈️\n\n";
+  const visaType = "🎫 *Ne için:* Schengen Turist Vizesi ✈️\n";
+  const categoryInfo = `${categoryEmoji} *Kategori:* ${category}\n\n`;
   
   const action = "🚀 *HEMEN KOŞŞŞ:*\n";
   const link = "🔗 [BLS Spain Portal'a Git!](https://turkey.blsspainglobal.com/Global/Account/LogIn)\n\n";
@@ -56,7 +64,7 @@ const notifyAppointmentFound = async (availableDates) => {
   const footer = "⏰ " + new Date().toLocaleString('tr-TR') + "\n";
   const warning = "⚡️ _Hızlı ol! Randevular uçuyor!_ 🏃‍♂️💨";
   
-  const message = header + subHeader + summary + datesText + location + visaType + action + link + footer + warning;
+  const message = header + subHeader + summary + datesText + location + visaType + categoryInfo + action + link + footer + warning;
   
   return await sendMessageToTelegram(message);
 };
