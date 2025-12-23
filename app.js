@@ -2,10 +2,6 @@ const { Builder, Browser, By, Key, until } = require("selenium-webdriver");
 const { solveCaptchaInIframe } = require("./captchaSolver");
 const {
   notifyAppointmentFound,
-  notifyNoAppointments,
-  notifyAppointmentsClosed,
-  notifyFormError,
-  notifyBotError,
   notifySlotPageReached
 } = require("./telegramNotifier");
 
@@ -1372,23 +1368,7 @@ async function main() {
       
     } catch (e) {
       console.error('❌ Hata oluştu:', e.message);
-      
-      // Form doldurma hatası mı kontrol et
-      if (e.message && e.message.includes('Form doldurma başarısız')) {
-        const errorStep = e.message.replace('Form doldurma başarısız: ', '');
-        try {
-          await notifyFormError(errorStep);
-        } catch (telegramError) {
-          console.log("Telegram bildirimi gönderilemedi");
-        }
-      } else {
-        // Genel hata bildirimi
-        try {
-          await notifyBotError(e.message);
-        } catch (telegramError) {
-          console.log("Telegram bildirimi gönderilemedi");
-        }
-      }
+      // Hata bildirimleri kaldırıldı - sadece başarı bildirimleri gönderiliyor
     } finally {
       await driver.quit();
     }
