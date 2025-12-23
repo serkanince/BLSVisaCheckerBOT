@@ -119,7 +119,7 @@ async function processImageForOCR(imgBuffer, config) {
 // TURBO MOD: 5 yöntem + erken çıkış
 // ============================================
 async function runOCRWithVoting(imgBuffer, boxIndex) {
-  // 8 OCR konfigürasyonu - YEŞİL YAZI + PEMBE ARKA PLAN İÇİN OPTİMİZE
+  // 12 OCR konfigürasyonu - TÜM RENKLER İÇİN OPTİMİZE (yeşil, pembe, turuncu, altın)
   const ocrConfigs = [
     // === TEMEL (en hızlı) ===
     { name: 'fast_1', threshold: 150, resize: 2, contrast: 1.6, brightness: 1.2, normalize: true, sharpen: true },
@@ -130,6 +130,14 @@ async function runOCRWithVoting(imgBuffer, boxIndex) {
     
     // === KIRMIZI KANAL + INVERT (pembe arka plan yakalar, invert ile yeşil yazı çıkar) ===
     { name: 'red_inv', channel: 'red', threshold: 130, resize: 2, contrast: 1.8, brightness: 1.3, invert: true, normalize: true, sharpen: true },
+    
+    // === PEMBE RAKAMLAR İÇİN YENİ KONFİGÜRASYONLAR ===
+    { name: 'pink_1', channel: 'red', threshold: 120, resize: 2, contrast: 2.5, brightness: 1.4, normalize: true, sharpen: true },
+    { name: 'pink_2', channel: 'red', threshold: 100, resize: 2, contrast: 3.0, brightness: 1.5, normalize: true, sharpen: true },
+    
+    // === TURUNCU/ALTIN RAKAMLAR İÇİN YENİ KONFİGÜRASYONLAR ===
+    { name: 'orange_1', channel: 'red', threshold: 110, resize: 2, contrast: 2.2, brightness: 1.3, normalize: true, sharpen: true },
+    { name: 'orange_2', threshold: 140, resize: 2, contrast: 2.4, brightness: 1.4, normalize: true, sharpen: true, gamma: 1.2 },
     
     // === MEDİAN (çizgili rakamlar) ===
     { name: 'median', threshold: 160, resize: 2, contrast: 1.8, brightness: 1.3, median: 3, normalize: true, sharpen: true },
@@ -142,6 +150,9 @@ async function runOCRWithVoting(imgBuffer, boxIndex) {
     
     // === YÜKSEK THRESHOLD + INVERT (açık yazılar) ===
     { name: 'high_inv', threshold: 200, resize: 2, contrast: 1.8, brightness: 1.4, invert: true, normalize: true, sharpen: true },
+    
+    // === RENK BAĞIMSIZ GENEL (tüm renkler için) ===
+    { name: 'universal', threshold: 130, resize: 3, contrast: 2.5, brightness: 1.3, normalize: true, sharpen: true, gamma: 1.1 },
   ];
   
   // Voting için sonuçları topla
