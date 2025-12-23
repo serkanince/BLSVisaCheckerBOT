@@ -156,14 +156,22 @@ async function runOCRWithVoting(imgBuffer, boxIndex) {
       // Görüntüyü işle
       const processedBuffer = await processImageForOCR(imgBuffer, config);
       
-      // OCR çalıştır
+      // OCR çalıştır - RAKAM-ONLY OPTİMİZASYONU
       const { data: { text, confidence } } = await Tesseract.recognize(
         processedBuffer,
         'eng',
         {
           logger: m => {},
           tessedit_char_whitelist: '0123456789',
-          tessedit_pageseg_mode: '8' // Single word mode
+          tessedit_pageseg_mode: '8', // Single word mode - rakamlar için ideal
+          tessedit_ocr_engine_mode: '1', // LSTM only - daha hızlı
+          tessedit_create_hocr: '0', // HOCR çıktısını kapat (hız için)
+          tessedit_create_tsv: '0', // TSV çıktısını kapat (hız için)
+          tessedit_create_pdf: '0', // PDF çıktısını kapat (hız için)
+          preserve_interword_spaces: '0', // Kelime arası boşlukları koruma (rakamlar için gerekli değil)
+          classify_bln_numeric_mode: '1', // Numeric mode - sadece rakamlar için optimize
+          textord_min_linesize: '2.5', // Minimum satır boyutu (küçük rakamlar için)
+          classify_enable_learning: '0' // Öğrenmeyi kapat (hız için)
         }
       );
       
