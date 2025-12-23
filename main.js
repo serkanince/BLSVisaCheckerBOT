@@ -6,7 +6,7 @@ const WORK_END_HOUR = 24;    // Gece 00:00'da dur
 const MORNING_END_HOUR = 12; // Sabah 12:00'a kadar yoğun mod
 
 const MORNING_INTERVAL = 20; // 08:00-12:00 arası 20 dakika
-const AFTERNOON_INTERVAL = 60; // 12:00-24:00 arası 60 dakika (1 saat)
+const AFTERNOON_INTERVAL = 120; // 12:00-24:00 arası 120 dakika (2 saat)
 
 // Şu anki saat çalışma saatleri içinde mi?
 function isWorkingHours() {

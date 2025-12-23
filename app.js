@@ -433,64 +433,80 @@ async function main() {
     await checkAndHandleUnavailable(driver);
     await driver.sleep(3000);
     
-    // 8. PREMIUM SONUÇ KONTROLÜ
+    // 8. PREMIUM SONUÇ KONTROLÜ - SADELEŞTİRİLMİŞ
     console.log("\n📋 Premium form submit sonrası sayfa kontrol ediliyor...\n");
-    const premiumPostUrl = await driver.getCurrentUrl();
-    const premiumPostPage = await driver.getPageSource();
     
-    const premiumHasSlotTitle = premiumPostPage.includes('Book New Appointment - Slot Selection');
-    const premiumHasCaptcha = !premiumHasSlotTitle && premiumPostPage.includes('Please select all boxes');
-    const premiumNoSlots = premiumPostPage.includes('Currently, no slots are available');
-    
-    if (premiumNoSlots) {
-      console.log("❌ Premium Category'de de slot yok!");
-      console.log("Her iki kategori de kapalı - script sonlanıyor...");
-      return; // Sonlandır
-    }
-    
-    const premiumClosed = !premiumHasSlotTitle && !premiumHasCaptcha && 
-                          (premiumPostPage.includes('No appointments available') ||
-                           premiumPostPage.includes('currently unavailable'));
+    // ÖNCE CAPTCHA KONTROLÜ - Her adımda captcha olabilir!
+    const premiumPageSource = await driver.getPageSource();
+    const premiumHasCaptcha = premiumPageSource.includes('Please select all boxes');
     
     if (premiumHasCaptcha) {
-      console.log("🔒 Premium için CAPTCHA ekranı!");
+      console.log("🔒 Premium form submit sonrası CAPTCHA ekranı tespit edildi!");
       console.log("Captcha çözülüyor...");
       
-      await solveCaptchaInIframe(driver);
-      await driver.sleep(2000);
-      await checkAndHandleUnavailable(driver);
-      await driver.sleep(3000);
-      
-      // Captcha sonrası tekrar kontrol
-      const afterPremiumCaptcha = await driver.getPageSource();
-      const afterPremiumSlotTitle = afterPremiumCaptcha.includes('Book New Appointment - Slot Selection');
-      const afterPremiumNoSlots = afterPremiumCaptcha.includes('Currently, no slots are available');
-      
-      if (afterPremiumNoSlots) {
-        console.log("❌ Premium'da da slot yok (captcha sonrası)!");
-        return;
+      try {
+        await solveCaptchaInIframe(driver);
+        await driver.sleep(2000);
+        await checkAndHandleUnavailable(driver);
+        await driver.sleep(2000);
+        console.log("✅ Premium captcha çözüldü!");
+      } catch (e) {
+        console.log("❌ Premium captcha çözülemedi:", e.message);
+        throw new Error("Premium captcha çözülemedi");
       }
-      
-      if (!afterPremiumSlotTitle) {
-        console.log("❌ Premium captcha sonrası Slot sayfası açılmadı!");
-        throw new Error("Premium slot sayfası açılmadı");
-      }
-      
-      console.log("✅ Premium captcha çözüldü, Slot sayfası açıldı!");
-      
-    } else if (premiumClosed) {
-      console.log("❌ Premium da kapalı!");
-      return;
-      
-    } else if (premiumHasSlotTitle) {
-      console.log("✅ Premium için Slot Selection sayfası açıldı (captcha yok)!");
     }
     
-    // 9. SLOT TARAMA (Normal akışıyla aynı)
-    console.log("\n📅 PREMIUM SLOT SELECTION SAYFASI\n");
-    await driver.sleep(2000);
+    // Şimdi slot açık mı kontrol et
+    const premiumSlotOpen = await checkIfSlotsAreOpen(driver, "Premium");
     
-    await scanAndNotifySlots(driver, "Premium");
+    if (premiumSlotOpen) {
+      // Slotlar açık! Telegram bildirimi at ve slot taramasına geç
+      console.log("\n📅 PREMIUM SLOT SELECTION SAYFASI\n");
+      await driver.sleep(2000);
+      await scanAndNotifySlots(driver, "Premium");
+    } else {
+      // Premium'da da slot yok
+      console.log("❌ Premium Category'de de slot yok!");
+      console.log("Her iki kategori de kapalı - script sonlanıyor...");
+      return;
+    }
+  }
+
+  // Slot açık mı kontrol fonksiyonu - SADELEŞTİRİLMİŞ
+  // NOT: Bu fonksiyon çağrılmadan ÖNCE captcha kontrolü yapılmalı!
+  async function checkIfSlotsAreOpen(driver, categoryName) {
+    await driver.sleep(2000);
+    await checkAndHandleUnavailable(driver);
+    
+    const pageSource = await driver.getPageSource();
+    
+    // "Appointment Slot" label'ı var mı kontrol et - BU EN ÖNEMLİ KONTROL!
+    const hasAppointmentSlotLabel = pageSource.includes('Appointment Slot');
+    
+    if (hasAppointmentSlotLabel) {
+      console.log(`✅ ${categoryName}: Slotlar AÇIK! "Appointment Slot" label'ı bulundu!`);
+      
+      // Telegram'a bildirim gönder - Slotlar açık!
+      try {
+        const message = `🎉 *${categoryName} Category'de Slotlar Açıldı!*\n\n` +
+                       `✅ "Appointment Slot" label'ı tespit edildi\n` +
+                       `📅 Randevu seçimi yapılabilir!\n\n` +
+                       `🔗 [Hemen Kontrol Et!](https://turkey.blsspainglobal.com/Global/Account/LogIn)\n\n` +
+                       `⏰ ${new Date().toLocaleString('tr-TR')}`;
+        
+        const { sendMessageToTelegram } = require("./telegramNotifier");
+        await sendMessageToTelegram(message);
+        console.log("✅ Slot açık bildirimi Telegram'a gönderildi!");
+      } catch (e) {
+        console.log("Telegram bildirimi gönderilemedi:", e.message);
+      }
+      
+      return true; // Slotlar açık!
+    }
+    
+    // "Appointment Slot" yok - slotlar kapalı
+    console.log(`❌ ${categoryName}: Slotlar kapalı - "Appointment Slot" label'ı bulunamadı`);
+    return false;
   }
 
   // Slot tarama ve bildirim fonksiyonu (kod tekrarını önlemek için)
@@ -1310,112 +1326,49 @@ async function main() {
 
       await driver.sleep(3000);
       
-      // ========== SENARYO 1: Form submit sonrası captcha kontrolü ==========
+      // ========== Form submit sonrası kontrol - SADELEŞTİRİLMİŞ ==========
       console.log("📋 Form submit sonrası sayfa kontrol ediliyor...");
-      const postSubmitUrl = await driver.getCurrentUrl();
-      const postSubmitPageSource = await driver.getPageSource();
       
-      // Slot Selection sayfası mı?
-      const hasSlotSelectionTitle = postSubmitPageSource.includes('Book New Appointment - Slot Selection');
-      
-      // Captcha sayfası mı?
-      const hasCaptcha = !hasSlotSelectionTitle && postSubmitPageSource.includes('Please select all boxes');
-      
-      // "No slots available" mesajı kontrolü
-      const noSlotsMessage = postSubmitPageSource.includes('Currently, no slots are available');
-      
-      if (noSlotsMessage) {
-        console.log("⚠️ Normal Category'de slot yok: Currently, no slots are available");
-        console.log("Premium Category deneniyor...");
-        
-        // Try Again butonuna basarak forma geri dön
-        try {
-          await tryPremiumCategory(driver);
-          // Premium akışı başarılı olduysa buradan devam eder
-          // Eğer Premium'da da slot yoksa return yapacak
-        } catch (e) {
-          console.log("❌ Premium Category akışında hata:", e.message);
-          return;
-        }
-        
-        // Premium akışı tamamlandı (slot bulundu veya bulunamadı)
-        return;
-      }
-      
-      // Randevu kapalı mı? (Error sayfası veya farklı bir sayfa)
-      const isAppointmentClosed = !hasSlotSelectionTitle && !hasCaptcha && 
-                                   (postSubmitPageSource.includes('No appointments available') ||
-                                    postSubmitPageSource.includes('currently unavailable') ||
-                                    postSubmitPageSource.includes('Şu anda randevu bulunmamaktadır') ||
-                                    (!postSubmitUrl.includes('/slot') && !postSubmitUrl.includes('/captcha')));
+      // ÖNCE CAPTCHA KONTROLÜ - Her adımda captcha olabilir!
+      const pageSource = await driver.getPageSource();
+      const hasCaptcha = pageSource.includes('Please select all boxes');
       
       if (hasCaptcha) {
         console.log("🔒 Form submit sonrası CAPTCHA ekranı tespit edildi!");
         console.log("Captcha çözülüyor...");
         
-        await solveCaptchaInIframe(driver);
-        
-        // Captcha sonrası "Application Temporarily Unavailable" kontrolü
+        try {
+          await solveCaptchaInIframe(driver);
+          await driver.sleep(2000);
+          await checkAndHandleUnavailable(driver);
+          await driver.sleep(2000);
+          console.log("✅ Captcha çözüldü!");
+        } catch (e) {
+          console.log("❌ Captcha çözülemedi:", e.message);
+          throw new Error("Captcha çözülemedi");
+        }
+      }
+      
+      // Şimdi slot açık mı kontrol et - "Appointment Slot" label'ı varsa slotlar açıktır
+      const slotOpen = await checkIfSlotsAreOpen(driver, "Normal");
+      
+      if (slotOpen) {
+        // Slotlar açık! Telegram bildirimi at ve slot taramasına geç
+        console.log("\n📅 NORMAL CATEGORY - SLOT SELECTION SAYFASI\n");
         await driver.sleep(2000);
-        console.log("Form submit captcha sonrası kontrol yapılıyor...");
-        await checkAndHandleUnavailable(driver);
-        
-        await driver.sleep(3000);
-        
-        // Captcha sonrası tekrar kontrol
-        const afterCaptchaPageSource = await driver.getPageSource();
-        const afterCaptchaHasSlotTitle = afterCaptchaPageSource.includes('Book New Appointment - Slot Selection');
-        const noSlotsAvailable = afterCaptchaPageSource.includes('Currently, no slots are available');
-        
-        if (noSlotsAvailable) {
-          console.log("⚠️ Normal Category'de slot yok (captcha sonrası): Currently, no slots are available");
-          console.log("Premium Category deneniyor...");
-          
-          // Try Again butonuna basarak forma geri dön
-          try {
-            await tryPremiumCategory(driver);
-            // Premium akışı başarılı olduysa buradan devam eder
-          } catch (e) {
-            console.log("❌ Premium Category akışında hata:", e.message);
-            return;
-          }
-          
-          // Premium akışı tamamlandı
-          return;
-        }
-        
-        if (!afterCaptchaHasSlotTitle) {
-          console.log("❌ Captcha sonrası Slot Selection sayfasına yönlendirilemedi!");
-          throw new Error("Slot Selection sayfasına erişilemedi");
-        }
-        
-        console.log("✅ Captcha çözüldü, Slot Selection sayfasına yönlendirildi!");
-      } else if (isAppointmentClosed) {
-        console.log("❌ Normal Category'de randevular kapalı!");
-        console.log("Slot Selection veya Captcha ekranı gelmedi - Premium deneniyor...");
-        
-        // Try Again butonuna basarak forma geri dön
+        await scanAndNotifySlots(driver, "Normal");
+        return;
+      } else {
+        // Slotlar kapalı, Premium'u dene
+        console.log("⚠️ Normal Category'de slot yok, Premium Category deneniyor...");
         try {
           await tryPremiumCategory(driver);
         } catch (e) {
           console.log("❌ Premium Category akışında hata:", e.message);
           return;
         }
-        
-        // Premium akışı tamamlandı
         return;
-      } else if (hasSlotSelectionTitle) {
-        console.log("✅ Slot Selection sayfasına direkt yönlendirildi (captcha yok)!");
       }
-      
-      // ========== SENARYO 2: Slot Selection sayfası ==========
-      console.log("\n📅 NORMAL CATEGORY - SLOT SELECTION SAYFASI\n");
-      await driver.sleep(2000);
-      
-      // Slot tarama ve bildirim fonksiyonunu çağır
-      await scanAndNotifySlots(driver, "Normal");
-      
-      return;
       
     } catch (e) {
       console.error('❌ Hata oluştu:', e.message);
