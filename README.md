@@ -46,7 +46,9 @@ npm start
 - **Node.js:** Ana çalışma ortamı.
 
 ## ⚠️ Önemli Notlar
-- Şu an için sadece **Ankara** ofisi için optimize edilmiştir.
-- Randevu slotları hızla dolabildiği için bildirim gelir gelmez işlem yapmanız önerilir.
-- `.env` dosyanızın güvenliğini sağlayın ve kimseyle paylaşmayın.
+- **Kapsam:** Şu an için sadece **Ankara** ofisi üzerinden yapılan **Schengen (Kısa Süreli)** başvuruları için optimize edilmiştir.
+- **Kategori Takibi:** Bot hem **Normal** hem de **Premium** randevu kategorilerini eş zamanlı olarak kontrol eder.
+- **Hız:** Randevu slotları hızla dolabildiği için bildirim gelir gelmez işlem yapmanız önerilir.
+- **Güvenlik:** `.env` dosyanızın güvenliğini sağlayın ve kimseyle paylaşmayın.
+
 
