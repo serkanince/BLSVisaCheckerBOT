@@ -60,3 +60,6 @@ Bu proje tamamen **Ar-Ge ve eğitim amaçlı** geliştirilmiştir. Aracın kulla
 - **Kategori Takibi:** Bot hem **Normal** hem de **Premium** randevu kategorilerini eş zamanlı olarak kontrol eder.
 - **Hız:** Randevu slotları hızla dolabildiği için bildirim gelir gelmez işlem yapmanız önerilir.
 - **Güvenlik:** `.env` dosyanızın güvenliğini sağlayın ve kimseyle paylaşmayın.
+
+## 📄 Lisans
+Bu proje [MIT](LICENSE) lisansı altında korunmaktadır.
