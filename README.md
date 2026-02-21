@@ -49,10 +49,14 @@ npm start
 - **Tesseract.js:** Görüntü işleme ve OCR.
 - **Node.js:** Ana çalışma ortamı.
 
+## ⚖️ Sorumluluk Reddi (Disclaimer)
+
+Bu proje tamamen **Ar-Ge ve eğitim amaçlı** geliştirilmiştir. Aracın kullanımıyla ilgili oluşabilecek (hesap kısıtlanması, hatalı işlem, veri kaybı vb.) hiçbir sorunda geliştirici yasal sorumluluk kabul etmez. Kullanıcılar botu kendi sorumluluklarında kullanırlar.
+
+---
+
 ## ⚠️ Önemli Notlar
 - **Kapsam:** Şu an için sadece **Ankara** ofisi üzerinden yapılan **Schengen (Kısa Süreli)** başvuruları için optimize edilmiştir.
 - **Kategori Takibi:** Bot hem **Normal** hem de **Premium** randevu kategorilerini eş zamanlı olarak kontrol eder.
 - **Hız:** Randevu slotları hızla dolabildiği için bildirim gelir gelmez işlem yapmanız önerilir.
 - **Güvenlik:** `.env` dosyanızın güvenliğini sağlayın ve kimseyle paylaşmayın.
-
-
