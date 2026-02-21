@@ -10,10 +10,14 @@ BLS Turkey İspanya vize randevularını otomatik olarak takip eden ve uygun slo
 ## 🚀 Hızlı Başlangıç
 
 ### 1. Hazırlık
-Sisteminizde Node.js yüklü olmalıdır. MacOS veya Linux terminalinde:
+- Sisteminizde Node.js yüklü olmalıdır.
+- **Önemli:** Botu çalıştırmadan önce [BLS sitesinde](https://turkey.blsspainglobal.com/Global/Account/LogIn) bir hesabınızın olması ve başvurmak istediğiniz kategori (Ankara - Schengen) için bir form taslağı/kaydı oluşturmuş olmanız gerekmektedir. 
+
+MacOS veya Linux terminalinde:
 ```bash
 npm install
 ```
+
 > [!NOTE]
 > Selenium 4+ sayesinde ChromeDriver otomatik olarak yönetilir, manuel kuruluma gerek yoktur.
 
