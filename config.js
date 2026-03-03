@@ -9,16 +9,21 @@ module.exports = {
     BOOK_NOW_URL: '/Global/appointment/newappointment',
     BLS_HOME_URL: '/Global/home/index',
     VISA_TYPE_URL: '/Global/bls/visatype',
+    MY_APPOINTMENTS_URL: 'https://turkey.blsspainglobal.com/Global/appointmentdata/MyAppointments',
 
     // === FORM DEĞERLERİ ===
     FORM: {
-        JURISDICTION: 'Ankara',
-        LOCATION: 'Ankara',
         VISA_TYPE: 'Schengen Visa/ Short Term Visa',
         VISA_SUB_TYPE: 'Tourist Visa',
         CATEGORY_NORMAL: 'Normal',
         CATEGORY_PREMIUM: 'Premium',
     },
+
+    // === ŞEHİRLER (her oturumda sırayla taranır) ===
+    CITIES: [
+        { name: 'Ankara', JURISDICTION: 'Ankara', LOCATION: 'Ankara' },
+        { name: 'Istanbul', JURISDICTION: 'Istanbul', LOCATION: 'Istanbul' },
+    ],
 
     // === RETRY & TIMEOUT ===
     RETRY: {

@@ -177,6 +177,29 @@ module.exports = {
     TELEGRAM_FAILED: (msg) => `❌ Telegram bildirimi gönderilemedi: ${msg}`,
     TELEGRAM_FAILED_SIMPLE: 'Telegram bildirimi gönderilemedi',
 
+    // === ŞEHİR AKIŞI ===
+    CITY_SCAN_START: (name) => `\n${'='.repeat(60)}\n🏙️  ${name.toUpperCase()} TARAMASI BAŞLIYOR\n${'='.repeat(60)}\n`,
+    CITY_SCAN_DONE: (name) => `\n✅ ${name} taraması tamamlandı.\n`,
+    CITY_SCAN_ERROR: (name, msg) => `❌ ${name} taraması sırasında hata: ${msg}`,
+    ALL_CITIES_DONE: '\n🏁 Tüm şehirler tarandı, oturum kapanıyor...\n',
+    CITY_ORDER_INFO: (names) => `📋 Bu oturumda tarama sırası: ${names.join(' → ')}`,
+    CITY_LAST_SAVED: (name) => `💾 Son taranan şehir: ${name} — bir sonraki şehirden başlanıyor`,
+
+    // === BAŞVURU SAHİBİ KONUM AYARI ===
+    LOCATION_SET_STARTING: (city) => `\n📍 Başvuru sahibi konumu "${city}" olarak ayarlanıyor...`,
+    LOCATION_SET_PAGE_LOADING: 'MyAppointments sayfası yükleniyor...',
+    LOCATION_SET_EDIT_SEARCHING: 'Edit (ManageApplicant) butonu aranıyor...',
+    LOCATION_SET_EDIT_CLICKED: '✅ Edit butonuna tıklandı, popup bekleniyor...',
+    LOCATION_SET_POPUP_READY: '✅ Konum seçim popup\'ı hazır.',
+    LOCATION_SET_DROPDOWN_SET: (city) => `✅ Location "${city}" olarak seçildi.`,
+    LOCATION_SET_VISA_TYPE_OK: '✅ Visa Type zaten Schengen Visa/ Short Term Visa.',
+    LOCATION_SET_VISA_TYPE_SET: '✅ Visa Type Schengen Visa/ Short Term Visa olarak seçildi.',
+    LOCATION_SET_PROCEED_CLICKED: '✅ Proceed butonuna tıklandı...',
+    LOCATION_SET_SUBMIT_CLICKED: '✅ Submit butonuna tıklandı...',
+    LOCATION_SET_ALERT_CLOSED: '✅ Alert kapatıldı - konum başarıyla güncellendi!',
+    LOCATION_SET_DONE: (city) => `✅ Başvuru sahibi konumu "${city}" olarak güncellendi.\n`,
+    LOCATION_SET_ERROR: (msg) => `❌ Konum ayarlanırken hata: ${msg}`,
+
     // === NORMAL SLOT ===
     NORMAL_SLOT_FOUND: '\n📅 NORMAL CATEGORY - SLOT SELECTION SAYFASI\n',
     NORMAL_NO_SLOT: '⚠️ Normal Category\'de slot yok, Premium Category deneniyor...',
@@ -184,3 +207,4 @@ module.exports = {
     // === GENEL HATA ===
     GLOBAL_ERROR: (msg) => `❌ Hata oluştu: ${msg}`,
 };
+
