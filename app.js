@@ -1511,6 +1511,12 @@ async function main() {
             await checkAndHandleUnavailable(driver);
           } catch (_) { }
         }
+
+        // Şehirler arası 10 saniyelik bekleme (son şehirden sonra gerekmez)
+        if (i < orderedCities.length - 1) {
+          console.log(`⏳ Sonraki şehre geçmeden önce 10 saniye bekleniyor...`);
+          await driver.sleep(10000);
+        }
       }
 
       console.log(MSG.ALL_CITIES_DONE);
