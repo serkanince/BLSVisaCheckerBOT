@@ -131,6 +131,22 @@ async function runOCRWithVoting(imgBuffer, boxIndex) {
     // === KIRMIZI KANAL + INVERT (pembe arka plan yakalar, invert ile yeşil yazı çıkar) ===
     { name: 'red_inv', channel: 'red', threshold: 130, resize: 2, contrast: 1.8, brightness: 1.3, invert: true, normalize: true, sharpen: true },
 
+    // === YEŞİL ZEMİN + AÇIK YEŞİL YAZI (camouflage kombinasyon) ===
+    // Green channel işe yaramaz (hem bg hem yazı yeşil görünür), blue+invert ile kontrast sağlanır
+    { name: 'lightgreen_blue_inv', channel: 'blue', threshold: 120, resize: 2, contrast: 3.0, brightness: 1.5, invert: true, normalize: true, sharpen: true },
+    { name: 'lightgreen_red_inv', channel: 'red', threshold: 110, resize: 2, contrast: 3.0, brightness: 1.6, invert: true, normalize: true, sharpen: true },
+    { name: 'lightgreen_blue_2', channel: 'blue', threshold: 100, resize: 3, contrast: 3.5, brightness: 1.4, invert: true, normalize: true, sharpen: true, gamma: 0.8 },
+
+    // === PEMBE ZEMİN + CYAN/TURKUAZ YAZI (camouflage kombinasyon) ===
+    // Cyan = yüksek mavi, düşük kırmızı. Pembe zemin = yüksek kırmızı, orta mavi
+    // Blue channel'da: cyan yazı parlak, pembe zemin karanlık → mükemmel kontrast!
+    { name: 'cyan_blue_1', channel: 'blue', threshold: 130, resize: 2, contrast: 2.8, brightness: 1.4, normalize: true, sharpen: true },
+    { name: 'cyan_blue_2', channel: 'blue', threshold: 110, resize: 3, contrast: 3.2, brightness: 1.5, normalize: true, sharpen: true },
+    // Underline/çizgi varsa median ile sil, sonra blue channel oku
+    { name: 'cyan_median_blue', channel: 'blue', threshold: 120, resize: 2, contrast: 2.5, brightness: 1.4, median: 3, normalize: true, sharpen: true },
+    // Invert versiyonu (bazen ters kontrast daha iyi sonuç verir)
+    { name: 'cyan_blue_inv', channel: 'blue', threshold: 140, resize: 2, contrast: 3.0, brightness: 1.3, invert: true, normalize: true, sharpen: true },
+
     // === PEMBE RAKAMLAR İÇİN YENİ KONFİGÜRASYONLAR ===
     { name: 'pink_1', channel: 'red', threshold: 120, resize: 2, contrast: 2.5, brightness: 1.4, normalize: true, sharpen: true },
     { name: 'pink_2', channel: 'red', threshold: 100, resize: 2, contrast: 3.0, brightness: 1.5, normalize: true, sharpen: true },
