@@ -36,7 +36,8 @@ function loadLastCity() {
 }
 
 /**
- * Şehir listesini son kaydedilen şehrin BİR SONRAKINDEN başlayacak şekilde döndürür.
+ * Şehir listesini son kaydedilen şehrin KENDİSİNDEN başlayacak şekilde döndürür.
+ * lastCity = BLS'de o lokasyon zaten set edilmiş demek, direkt taramaya başlanabilir.
  * Tüm şehirlerin taranmasını garantiler (wrap-around).
  * @param {Array} cities - CFG.CITIES dizisi
  * @returns {Array} Yeniden sıralanmış şehir listesi
@@ -48,9 +49,21 @@ function getOrderedCities(cities) {
     const lastIdx = cities.findIndex(c => c.name === lastCity);
     if (lastIdx === -1) return cities; // Bilinmeyen şehir - sırayı değiştirme
 
-    // Son şehrin BİR SONRAKINDEN başla (wrap-around)
-    const nextIdx = (lastIdx + 1) % cities.length;
-    return [...cities.slice(nextIdx), ...cities.slice(0, nextIdx)];
+    // lastCity'den başla: lokasyon zaten o şehre set edilmiş
+    return [...cities.slice(lastIdx), ...cities.slice(0, lastIdx)];
 }
 
-module.exports = { saveLastCity, loadLastCity, getOrderedCities };
+/**
+ * İlk taranacak şehrin lokasyonu BLS'de zaten set edilmiş mi?
+ * Evet ise setApplicantLocation adımı atlanabilir.
+ * @param {Array} cities - CFG.CITIES dizisi
+ * @param {object} firstCity - Taranacak ilk şehir
+ * @returns {boolean}
+ */
+function isLocationAlreadySet(cities, firstCity) {
+    const lastCity = loadLastCity();
+    if (!lastCity) return false; // İlk çalışma
+    return lastCity === firstCity.name;
+}
+
+module.exports = { saveLastCity, loadLastCity, getOrderedCities, isLocationAlreadySet };

@@ -6,7 +6,7 @@ const {
 } = require("./telegramNotifier");
 const CFG = require("./config");
 const MSG = require("./messages");
-const { saveLastCity, getOrderedCities } = require("./stateManager");
+const { saveLastCity, loadLastCity, getOrderedCities, isLocationAlreadySet } = require("./stateManager");
 
 require("dotenv").config();
 
@@ -671,11 +671,13 @@ async function main() {
   // ============================================================
   // Tek bir şehir için tam tarama akışı (Normal + Premium)
   // ============================================================
-  async function scanCity(driver, city) {
+  async function scanCity(driver, city, skipLocationSet = false) {
     console.log(MSG.CITY_SCAN_START(city.name));
 
-    // Başvuru sahibi konumunu bu şehre ayarla
-    await setApplicantLocation(driver, city);
+    // Başvuru sahibi konumunu bu şehre ayarla (zaten set ise atla)
+    if (!skipLocationSet) {
+      await setApplicantLocation(driver, city);
+    }
 
     // Ana sayfaya geri dön
     await driver.get(`https://turkey.blsspainglobal.com${CFG.BLS_HOME_URL}`);
@@ -1487,12 +1489,19 @@ async function main() {
 
       // Akıllı sıralama: son taranan şehrin bir sonrakinden başla
       const orderedCities = getOrderedCities(CFG.CITIES);
+      const lastSavedCity = loadLastCity(); // getOrderedCities ile aynı okuma, tutarlı sonuç
       console.log(MSG.CITY_ORDER_INFO(orderedCities.map(c => c.name)));
 
       // Tüm şehirleri sırayla tara
-      for (const city of orderedCities) {
+      for (let i = 0; i < orderedCities.length; i++) {
+        const city = orderedCities[i];
+        // İlk şehir lastCity ile aynıysa lokasyon BLS'de ZATEN set edilmiş — setApplicantLocation atla
+        const skipLocationSet = (i === 0) && (lastSavedCity === city.name);
+        if (skipLocationSet) {
+          console.log(`⚡ ${city.name} lokasyonu zaten set — ManageApplicant adımı atlanıyor.`);
+        }
         try {
-          await scanCity(driver, city);
+          await scanCity(driver, city, skipLocationSet);
         } catch (e) {
           console.log(MSG.CITY_SCAN_ERROR(city.name, e.message));
           // Bir şehirde hata olsa da sonrakine geç; ana sayfaya dön
