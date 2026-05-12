@@ -1,6 +1,6 @@
 /**
  * BLS Visa Checker - State Manager
- * Son taranan şehri kaydeder ve okur.
+ * BLS'de işlenen son şehri kaydeder ve okur.
  * Bir sonraki çalışmada kaldığı yerden devam eder.
  */
 
@@ -10,7 +10,7 @@ const path = require('path');
 const STATE_FILE = path.join(__dirname, 'last_city.json');
 
 /**
- * Son başarıyla tamamlanan şehri kaydet.
+ * BLS profilinde işlenen son şehri kaydet (lokasyon güncellemesinden / resume sonrası).
  * @param {string} cityName - Şehir adı (config.CITIES[i].name ile aynı)
  */
 function saveLastCity(cityName) {

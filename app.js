@@ -678,6 +678,8 @@ async function main() {
     if (!skipLocationSet) {
       await setApplicantLocation(driver, city);
     }
+    // BLS profili bu şehre işlendi; Book Now / form / captcha vb. hata verse bile sonraki çalışmada doğru şehirden devam edilsin
+    saveLastCity(city.name);
 
     // Ana sayfaya geri dön
     await driver.get(`https://turkey.blsspainglobal.com${CFG.BLS_HOME_URL}`);
@@ -909,8 +911,6 @@ async function main() {
       }
     }
 
-    // Bu şehri başarıyla tamamladık - kaydet
-    saveLastCity(city.name);
     console.log(MSG.CITY_SCAN_DONE(city.name));
 
     // Bir sonraki şehir için ana sayfaya dön
