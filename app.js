@@ -44,11 +44,8 @@ async function main() {
     const targetText = visibleText.trim().toLowerCase();
 
     try {
-      console.log(MSG.DROPDOWN_SEARCHING(labelText, visibleText));
-
       // Tüm label elementlerini bul
       const allLabels = await driver.findElements(By.css('label.form-label'));
-      console.log(`Toplam ${allLabels.length} label bulundu`);
 
       let targetDropdown = null;
 
@@ -71,7 +68,6 @@ async function main() {
             // Dropdown'u bul (parent div içinde)
             try {
               targetDropdown = await parentDiv.findElement(By.css('span.k-dropdown-wrap'));
-              console.log(MSG.DROPDOWN_FOUND(labelText));
               break;
             } catch (e) {
               // Bu div'de dropdown yok, devam et
@@ -93,7 +89,6 @@ async function main() {
       await driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", targetDropdown);
       await driver.sleep(CFG.SLEEP.SHORT);
       await driver.executeScript("arguments[0].click();", targetDropdown);
-      console.log(MSG.DROPDOWN_OPENED(labelText));
       await driver.sleep(400);
 
       // Seçenekleri bul
@@ -111,7 +106,6 @@ async function main() {
             if (!isListDisplayed) continue;
 
             const items = await ul.findElements(By.css("li.k-item"));
-            console.log(`  ${items.length} seçenek bulundu`);
 
             if (items.length > 0) {
               for (const item of items) {
@@ -155,18 +149,16 @@ async function main() {
   // MyAppointments sayfasında başvuru sahibi konumunu ayarla
   // ============================================================
   async function setApplicantLocation(driver, city) {
-    console.log(MSG.LOCATION_SET_STARTING(city.name));
+      console.log(MSG.LOCATION_SET_STARTING(city.name));
 
     try {
       // 1. MyAppointments sayfasına git
-      console.log(MSG.LOCATION_SET_PAGE_LOADING);
       await driver.get(CFG.MY_APPOINTMENTS_URL);
       await driver.sleep(CFG.SLEEP.AFTER_LOGIN);
       await checkAndHandleUnavailable(driver);
       await driver.sleep(CFG.SLEEP.LONG);
 
       // 2. Edit (ManageApplicant) butonuna tıkla - "Primary Applicant" veya ilk görünür olanı seç
-      console.log(MSG.LOCATION_SET_EDIT_SEARCHING);
       let editBtn = null;
 
       try {
@@ -385,7 +377,6 @@ async function main() {
   async function tryPremiumCategory(driver, city) {
     console.log(MSG.PREMIUM_FLOW_STARTING);
 
-    console.log(MSG.TRY_AGAIN_SEARCHING);
     let tryAgainClicked = false;
 
     try {
@@ -540,14 +531,11 @@ async function main() {
     if (!formSuccess.visaSubType) throw new Error("Premium: Visa Sub Type seçilemedi");
     await driver.sleep(CFG.SLEEP.SHORT);
 
-    console.log(MSG.PREMIUM_CATEGORY_SELECTING);
     formSuccess.category = await selectKendoDropdownByLabel(driver, "Category", CFG.FORM.CATEGORY_PREMIUM);
     if (!formSuccess.category) throw new Error("Premium: Category seçilemedi");
     await driver.sleep(CFG.SLEEP.MEDIUM);
 
     // 6. PREMIUM MODAL DIALOG KONTROLÜ VE ACCEPT
-    console.log(MSG.PREMIUM_MODAL_CHECKING);
-
     try {
       // Modal'ın açılmasını bekle
       await driver.sleep(1000);
@@ -564,8 +552,7 @@ async function main() {
 
             // Premium Lounge mesajı var mı?
             if (text.includes('Premium Lounge') || text.includes('optional service')) {
-              console.log(MSG.PREMIUM_MODAL_FOUND);
-              console.log(MSG.PREMIUM_MODAL_TEXT(text));
+              console.log(MSG.PREMIUM_MODAL_SUMMARY(text));
               modalFound = true;
 
               // Accept butonu ara
@@ -687,7 +674,6 @@ async function main() {
     await checkAndHandleUnavailable(driver);
 
     // Her şehir için "Book Now" butonuna tıkla
-    console.log(MSG.BOOK_NOW_SEARCHING);
     try {
       // Sayfanın tam yüklenmesini bekle
       await driver.wait(
@@ -957,7 +943,6 @@ async function main() {
   // Slot tarama ve bildirim fonksiyonu (kod tekrarını önlemek için)
   async function scanAndNotifySlots(driver, categoryName = "Normal") {
     // Date picker'ı bul
-    console.log(MSG.DATE_PICKER_SEARCHING);
     const allDatePickers = await driver.findElements(By.css('input.k-input[data-role="datepicker"]'));
 
     let visibleDatePicker = null;
@@ -966,8 +951,7 @@ async function main() {
         const isDisplayed = await picker.isDisplayed();
         if (isDisplayed) {
           visibleDatePicker = picker;
-          const pickerId = await picker.getAttribute('id');
-          console.log(MSG.DATE_PICKER_FOUND(pickerId));
+          console.log(MSG.DATE_PICKER_READY);
           break;
         }
       } catch (e) { continue; }
@@ -1018,7 +1002,6 @@ async function main() {
 
     for (const method of openMethods) {
       try {
-        console.log(MSG.CALENDAR_METHOD_TRYING(method.name));
         await method.fn();
         await driver.sleep(CFG.SLEEP.LONG);
 
@@ -1029,7 +1012,7 @@ async function main() {
           break;
         }
       } catch (e) {
-        console.log(MSG.CALENDAR_METHOD_FAILED(method.name, e.message));
+        /* takvim açma yöntemi sessizce atlanır */
       }
     }
 
@@ -1078,7 +1061,6 @@ async function main() {
         await driver.sleep(CFG.SLEEP.MEDIUM);
 
         const allDateLinks = await driver.findElements(By.css('.k-calendar a.k-link[data-value]'));
-        console.log(MSG.CALENDAR_DATES_FOUND(allDateLinks.length));
         if (allDateLinks.length === 0) {
           console.log(MSG.CALENDAR_NO_DATES);
           continue;
@@ -1130,7 +1112,6 @@ async function main() {
                 category: categoryName
               });
               foundInThisMonth++;
-              console.log(MSG.CALENDAR_GREEN_DATE(dateText, currentMonth, dataValue));
             }
           } catch (e) {
             continue;
@@ -1224,10 +1205,7 @@ async function main() {
             const input = allInputs[i];
             const isDisplayed = await input.isDisplayed();
             const rect = await input.getRect();
-            const id = await input.getAttribute("id");
-            const name = await input.getAttribute("name");
             if (isDisplayed && rect.width > 50 && rect.height > 20) {
-              console.log(MSG.EMAIL_FOUND(id || name));
               emailInput = input;
               break;
             }
@@ -1247,7 +1225,6 @@ async function main() {
         throw new Error("Email girilemedi!");
       }
 
-      console.log(MSG.VERIFY_CLICKING);
       await driver.findElement(By.id("btnVerify")).click();
       console.log(MSG.VERIFY_CLICKED);
 
@@ -1264,10 +1241,7 @@ async function main() {
             const input = allPasswords[i];
             const isDisplayed = await input.isDisplayed();
             const rect = await input.getRect();
-            const id = await input.getAttribute("id");
-            const name = await input.getAttribute("name");
             if (isDisplayed && rect.width > 50 && rect.height > 20) {
-              console.log(MSG.PASSWORD_FOUND);
               passwordInput = input;
               break;
             }
@@ -1322,7 +1296,6 @@ async function main() {
                 const passRect = await passInput.getRect();
                 if (passDisplayed && passRect.width > 50) {
                   passwordFound = true;
-                  console.log(MSG.PASSWORD_FOUND);
 
                   const inputClass = await passInput.getAttribute('class');
                   if (inputClass && inputClass.includes('entry-disabled')) {
@@ -1414,7 +1387,6 @@ async function main() {
 
                   const passRect = await passInput.getRect();
                   if (passDisplayed && passRect.width > 50) {
-                    console.log(MSG.PASSWORD_FOUND);
 
                     const inputClass = await passInput.getAttribute('class');
                     if (inputClass && inputClass.includes('entry-disabled')) {

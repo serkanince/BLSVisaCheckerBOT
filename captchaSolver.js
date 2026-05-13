@@ -274,7 +274,6 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3, isLo
 
     // Hedef sayıyı bul
     const targetNumber = await findTargetNumber(driver);
-    console.log(`\n🎯 Hedef sayımız: ${targetNumber} - Hadi onu bulalım! 💪\n`);
 
     // Kutuları seç
     await selectCaptchaBoxes(driver, targetNumber);
@@ -517,8 +516,6 @@ async function selectCaptchaBoxes(driver, targetNumber) {
     return a.rect.x - b.rect.x;
   });
 
-  console.log(`📦 ${boxImgs.length} kutu → ${boxesToScan.length} benzersiz pozisyon taranacak`);
-
   let clickedCount = 0;
 
   for (let [idx, box] of boxesToScan.entries()) {
@@ -532,13 +529,9 @@ async function selectCaptchaBoxes(driver, targetNumber) {
       const imgBuffer = Buffer.from(base64src.split(',')[1], 'base64');
 
       // Voting ile OCR çalıştır
-      const { bestResult, results } = await runOCRWithVoting(imgBuffer, i);
+      const { bestResult } = await runOCRWithVoting(imgBuffer, i);
 
       if (bestResult) {
-        const votingInfo = Object.entries(results)
-          .map(([text, data]) => `${text}(${data.count})`)
-          .join(', ');
-
         // Hedef sayı eşleşiyor mu?
         if (bestResult.text === targetNumber) {
           ocrStats.targetMatches++;
@@ -549,14 +542,11 @@ async function selectCaptchaBoxes(driver, targetNumber) {
             const imgClass = await img.getAttribute('class');
             if (imgClass && imgClass.includes('img-selected')) {
               alreadySelected = true;
-              console.log(`\n🎯 Kutu #${idx + 1} → ${bestResult.text} (zaten seçili ✓)`);
               clickedCount++; // Sayıya dahil et ama tıklama
             }
           } catch (e) { }
 
           if (!alreadySelected) {
-            console.log(`\n🎯 Buldum! Kutu #${idx + 1} → ${bestResult.text} ✨`);
-
             // HEMEN TIKLA - stale element olmadan
             let clicked = false;
             try {
@@ -579,13 +569,7 @@ async function selectCaptchaBoxes(driver, targetNumber) {
 
             if (clicked) {
               clickedCount++;
-              console.log(`   👆 Tık! Seçildi 💚`);
             }
-          }
-        } else {
-          // Sadece yüksek oylu sonuçları göster
-          if (bestResult.votes >= 5) {
-            console.log(`   Kutu #${idx + 1}: ${bestResult.text} (${bestResult.votes} oy)`);
           }
         }
       }
@@ -594,13 +578,6 @@ async function selectCaptchaBoxes(driver, targetNumber) {
     }
   }
 
-  console.log('\n' + '═'.repeat(50));
-  const resultEmoji = clickedCount >= 3 ? '🎉' : clickedCount > 0 ? '👍' : '😅';
-  console.log(`${resultEmoji} ${clickedCount} kutu tıklandı! ${clickedCount >= 3 ? 'Mükemmel!' : clickedCount > 0 ? 'İyi gidiyoruz!' : 'Hmm, bi daha deneyelim...'}`);
-  console.log('═'.repeat(50));
-
-  // Submit butonu
-  console.log('\n📤 Submit ediliyor...');
   let submitted = false;
 
   const submitMethods = [
@@ -617,7 +594,6 @@ async function selectCaptchaBoxes(driver, targetNumber) {
       await driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", elem);
       await driver.sleep(300);
       await driver.executeScript("arguments[0].click();", elem);
-      console.log(`   ✅ Submit başarılı (${method.name})`);
       submitted = true;
     } catch (e) { }
   }
@@ -626,14 +602,14 @@ async function selectCaptchaBoxes(driver, targetNumber) {
   if (!submitted) {
     try {
       await driver.executeScript('if(typeof onSubmit === "function") onSubmit();');
-      console.log('   ✅ Submit başarılı (JS onSubmit())');
       submitted = true;
     } catch (e) { }
   }
 
-  if (!submitted) {
-    console.log('   ⚠️ Submit butonu bulunamadı!');
-  }
+  const submitOk = submitted;
+  console.log(
+    `Captcha ${targetNumber}: ${clickedCount}/${boxesToScan.length} kutu${submitOk ? ', gönderildi' : ', submit yok'}`
+  );
 
   await driver.sleep(2000);
   if (isInIframe) await driver.switchTo().defaultContent();
