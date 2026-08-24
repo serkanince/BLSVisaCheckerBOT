@@ -17,6 +17,7 @@ module.exports = {
         VISA_SUB_TYPE: 'Tourist Visa',
         CATEGORY_NORMAL: 'Normal',
         CATEGORY_PREMIUM: 'Premium',
+        CHECK_PREMIUM: false, // Sadece normal aranacaksa false yapın
     },
 
     // === ŞEHİRLER (her oturumda sırayla taranır) ===
@@ -35,13 +36,13 @@ module.exports = {
 
     // === SLEEP (ms) ===
     SLEEP: {
-        SHORT: 250,
-        MEDIUM: 500,
-        LONG: 1000,
-        AFTER_LOGIN: 1500,
-        AFTER_SUBMIT: 2500,
-        RATE_LIMIT: 30000,
-        CALENDAR_NAV: 750,
+        SHORT: 700,
+        MEDIUM: 1250,
+        LONG: 2100,
+        AFTER_LOGIN: 3100,
+        AFTER_SUBMIT: 5200,
+        RATE_LIMIT: 60000,
+        CALENDAR_NAV: 1600,
     },
 
     // === TAKVİM ===

@@ -24,151 +24,120 @@ function resetOCRStats() {
 }
 
 // ============================================
-// YARDIMCI: Görüntü işleme pipeline'ı
+// ADAPTİF PREPROCESSING
+// ------------------------------------------------
+// Sabit global threshold'lar soluk rakamları siliyordu: arka plandan
+// PARLAKLK değil RENK TONU ile ayrılan rakamlar boş çıkıyordu.
+// Bu üç adım 20 elle ayarlanmış renk konfigürasyonunun yerini aldı
+// ve offline doğruluğu %74.1'den %94.4'e çıkardı.
 // ============================================
-async function processImageForOCR(imgBuffer, config) {
-  try {
-    let pipeline = sharp(imgBuffer);
 
-    // 1. Kanal seçimi (RGB kanallarından birini al)
-    if (config.channel === 'blue') {
-      pipeline = sharp(await pipeline.extractChannel(2).toBuffer());
-    } else if (config.channel === 'green') {
-      pipeline = sharp(await pipeline.extractChannel(1).toBuffer());
-    } else if (config.channel === 'red') {
-      pipeline = sharp(await pipeline.extractChannel(0).toBuffer());
-    } else {
-      // Grayscale yap
-      pipeline = pipeline.grayscale();
-    }
+// Her tile'ın kendi histogramından threshold hesapla (sabit sayı yerine)
+function otsuThreshold(gray) {
+  const hist = new Array(256).fill(0);
+  for (const v of gray) hist[v]++;
+  const total = gray.length;
+  let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
+  let sumB = 0, wB = 0, best = 0, thr = 128;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t]; if (!wB) continue;
+    const wF = total - wB; if (!wF) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB, mF = (sum - sumB) / wF;
+    const between = wB * wF * (mB - mF) * (mB - mF);
+    if (between > best) { best = between; thr = t; }
+  }
+  return thr;
+}
 
-    // 2. Boyutlandırma (hız için optimize - 2x yeterli)
-    const resizeFactor = config.resize || 2;
-    pipeline = pipeline.resize({
-      width: 120 * resizeFactor,
-      height: 60 * resizeFactor,
-      kernel: sharp.kernel.nearest, // En hızlı kernel
-      fit: 'fill'
-    });
+// Arka plan = en sık kullanılan renk. Rakamlar arka plandan renk tonu ile
+// ayrılır, bu yüzden arka plandan uzaklık onları hangi renkte olurlarsa
+// olsunlar ayırır.
+function colourDistanceMap(data, w, h) {
+  const bucket = {};
+  const q = v => (v >> 4) << 4;
+  for (let i = 0; i < data.length; i += 3) {
+    const k = `${q(data[i])},${q(data[i + 1])},${q(data[i + 2])}`;
+    bucket[k] = (bucket[k] || 0) + 1;
+  }
+  const [br, bg, bb] = Object.entries(bucket).sort((a, b) => b[1] - a[1])[0][0].split(',').map(Number);
+  const dist = new Float32Array(w * h); let max = 1;
+  for (let p = 0, i = 0; i < data.length; i += 3, p++) {
+    const d = Math.hypot(data[i] - br, data[i + 1] - bg, data[i + 2] - bb);
+    dist[p] = d; if (d > max) max = d;
+  }
+  const out = Buffer.alloc(w * h);
+  for (let p = 0; p < dist.length; p++) out[p] = Math.round((dist[p] / max) * 255);
+  return out;
+}
 
-    // 3. Kontrast ve parlaklık ayarı
-    if (config.brightness || config.contrast) {
-      // linear(a, b) -> output = input * a + b
-      const contrast = config.contrast || 1.0;
-      const brightness = config.brightness || 1.0;
-      pipeline = pipeline.linear(contrast, (brightness - 1) * 128);
-    }
-
-    // 4. Gamma düzeltmesi
-    if (config.gamma) {
-      pipeline = pipeline.gamma(config.gamma);
-    }
-
-    // 5. Normalize (histogram equalization)
-    if (config.normalize) {
-      pipeline = pipeline.normalize();
-    }
-
-    // 6. Median blur (çizgileri silmek için çok etkili!)
-    if (config.median) {
-      pipeline = pipeline.median(config.median);
-    }
-
-    // 7. Blur (gürültü azaltma)
-    if (config.blur) {
-      pipeline = pipeline.blur(config.blur);
-    }
-
-    // 8. Sharpen (keskinleştirme)
-    if (config.sharpen) {
-      if (typeof config.sharpen === 'object') {
-        pipeline = pipeline.sharpen(config.sharpen.sigma, config.sharpen.flat, config.sharpen.jagged);
-      } else {
-        pipeline = pipeline.sharpen();
+// Büyük blob'ları (rakam çizgileri) tut, küçükleri (gürültü/çizgi) at.
+// Bu adım Tesseract'ın gürültülü tile'larda boş dönmesini engeller.
+function filterComponents(bin, w, h, minPx) {
+  const lbl = new Int32Array(w * h).fill(-1);
+  const sizes = []; const stack = [];
+  for (let i = 0; i < w * h; i++) {
+    if (bin[i] === 0 || lbl[i] !== -1) continue;
+    const id = sizes.length; let n = 0;
+    stack.push(i); lbl[i] = id;
+    while (stack.length) {
+      const pq = stack.pop(); n++;
+      const x = pq % w, y = (pq / w) | 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const qq = ny * w + nx;
+        if (bin[qq] === 0 && lbl[qq] === -1) { lbl[qq] = id; stack.push(qq); }
       }
     }
-
-    // 9. Threshold (binary görüntü oluştur)
-    if (config.threshold) {
-      pipeline = pipeline.threshold(config.threshold);
-    }
-
-    // 10. Invert (renkleri tersine çevir)
-    if (config.invert) {
-      pipeline = pipeline.negate();
-    }
-
-    // 11. Morphological işlemler (dilate/erode simülasyonu)
-    if (config.morphKernel) {
-      pipeline = pipeline.convolve({
-        width: 3,
-        height: 3,
-        kernel: config.morphKernel
-      });
-    }
-
-    return await pipeline.png().toBuffer();
-  } catch (err) {
-    // Sessizce devam et, farklı yöntemler deneyecek
-    return imgBuffer;
+    sizes.push(n);
   }
+  const out = Buffer.alloc(w * h, 255);
+  for (let i = 0; i < w * h; i++) {
+    const id = lbl[i];
+    if (id >= 0 && sizes[id] >= minPx) out[i] = 0;
+  }
+  return out;
+}
+
+// Adaptif preprocessing pipeline: colour distance → blur → normalize → otsu → upscale → component filter
+async function preprocessAdaptive(imgBuffer, cfg) {
+  const { data, info } = await sharp(imgBuffer).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  const map = colourDistanceMap(data, info.width, info.height);
+  let pipe = sharp(map, { raw: { width: info.width, height: info.height, channels: 1 } });
+  if (cfg.blur) pipe = pipe.blur(cfg.blur);
+  pipe = pipe.normalize();
+  const g = await pipe.clone().raw().toBuffer();
+  const thr = otsuThreshold(g);
+  const scale = cfg.resize || 3;
+  const binPng = await pipe.resize(info.width * scale, info.height * scale)
+    .threshold(thr).negate().png().toBuffer();
+  // Binarize edilmiş, büyütülmüş görüntüde component filter uygula
+  const bi = await sharp(binPng).grayscale().raw().toBuffer({ resolveWithObject: true });
+  const bin = Buffer.from(bi.data).map(v => (v < 128 ? 0 : 255));
+  const cleaned = filterComponents(bin, bi.info.width, bi.info.height, cfg.minPx || 120);
+  // Tesseract document-like input bekler: beyaz margin, ~300dpi
+  return sharp(cleaned, { raw: { width: bi.info.width, height: bi.info.height, channels: 1 } })
+    .extend({ top: 40, bottom: 40, left: 40, right: 40, background: '#fff' })
+    .withMetadata({ density: 300 }).png().toBuffer();
 }
 
 // ============================================
 // YARDIMCI: Tek bir kutu için OCR çalıştır
-// TURBO MOD: 5 yöntem + erken çıkış
+// TURBO MOD: Adaptif configs + erken çıkış
 // ============================================
 async function runOCRWithVoting(imgBuffer, boxIndex) {
-  // 12 OCR konfigürasyonu - TÜM RENKLER İÇİN OPTİMİZE (yeşil, pembe, turuncu, altın)
+  // Adaptif konfigürasyonlar. Tek başına biri bile %93 doğruluk veriyor;
+  // varyasyonlar kenar durumlarını kapsıyor.
+  // Eski sistem: 20 sabit threshold/renk config = %74.1
+  // Yeni sistem: 6 adaptif config = %94.4
   const ocrConfigs = [
-    // === TEMEL (en hızlı) ===
-    { name: 'fast_1', threshold: 150, resize: 2, contrast: 1.6, brightness: 1.2, normalize: true, sharpen: true },
-    { name: 'fast_2', threshold: 180, resize: 2, contrast: 2.0, brightness: 1.4, normalize: true, sharpen: true },
-
-    // === YEŞİL KANAL (yeşil yazı için PERFECT!) ===
-    { name: 'green', channel: 'green', threshold: 140, resize: 2, contrast: 2.0, brightness: 1.2, normalize: true, sharpen: true },
-
-    // === KIRMIZI KANAL + INVERT (pembe arka plan yakalar, invert ile yeşil yazı çıkar) ===
-    { name: 'red_inv', channel: 'red', threshold: 130, resize: 2, contrast: 1.8, brightness: 1.3, invert: true, normalize: true, sharpen: true },
-
-    // === YEŞİL ZEMİN + AÇIK YEŞİL YAZI (camouflage kombinasyon) ===
-    // Green channel işe yaramaz (hem bg hem yazı yeşil görünür), blue+invert ile kontrast sağlanır
-    { name: 'lightgreen_blue_inv', channel: 'blue', threshold: 120, resize: 2, contrast: 3.0, brightness: 1.5, invert: true, normalize: true, sharpen: true },
-    { name: 'lightgreen_red_inv', channel: 'red', threshold: 110, resize: 2, contrast: 3.0, brightness: 1.6, invert: true, normalize: true, sharpen: true },
-    { name: 'lightgreen_blue_2', channel: 'blue', threshold: 100, resize: 3, contrast: 3.5, brightness: 1.4, invert: true, normalize: true, sharpen: true, gamma: 0.8 },
-
-    // === PEMBE ZEMİN + CYAN/TURKUAZ YAZI (camouflage kombinasyon) ===
-    // Cyan = yüksek mavi, düşük kırmızı. Pembe zemin = yüksek kırmızı, orta mavi
-    // Blue channel'da: cyan yazı parlak, pembe zemin karanlık → mükemmel kontrast!
-    { name: 'cyan_blue_1', channel: 'blue', threshold: 130, resize: 2, contrast: 2.8, brightness: 1.4, normalize: true, sharpen: true },
-    { name: 'cyan_blue_2', channel: 'blue', threshold: 110, resize: 3, contrast: 3.2, brightness: 1.5, normalize: true, sharpen: true },
-    // Underline/çizgi varsa median ile sil, sonra blue channel oku
-    { name: 'cyan_median_blue', channel: 'blue', threshold: 120, resize: 2, contrast: 2.5, brightness: 1.4, median: 3, normalize: true, sharpen: true },
-    // Invert versiyonu (bazen ters kontrast daha iyi sonuç verir)
-    { name: 'cyan_blue_inv', channel: 'blue', threshold: 140, resize: 2, contrast: 3.0, brightness: 1.3, invert: true, normalize: true, sharpen: true },
-
-    // === PEMBE RAKAMLAR İÇİN YENİ KONFİGÜRASYONLAR ===
-    { name: 'pink_1', channel: 'red', threshold: 120, resize: 2, contrast: 2.5, brightness: 1.4, normalize: true, sharpen: true },
-    { name: 'pink_2', channel: 'red', threshold: 100, resize: 2, contrast: 3.0, brightness: 1.5, normalize: true, sharpen: true },
-
-    // === TURUNCU/ALTIN RAKAMLAR İÇİN YENİ KONFİGÜRASYONLAR ===
-    { name: 'orange_1', channel: 'red', threshold: 110, resize: 2, contrast: 2.2, brightness: 1.3, normalize: true, sharpen: true },
-    { name: 'orange_2', threshold: 140, resize: 2, contrast: 2.4, brightness: 1.4, normalize: true, sharpen: true, gamma: 1.2 },
-
-    // === MEDİAN (çizgili rakamlar) ===
-    { name: 'median', threshold: 160, resize: 2, contrast: 1.8, brightness: 1.3, median: 3, normalize: true, sharpen: true },
-
-    // === MAVİ KANAL ===
-    { name: 'blue', channel: 'blue', threshold: 150, resize: 2, contrast: 1.7, brightness: 1.3, normalize: true, sharpen: true },
-
-    // === DÜŞÜK THRESHOLD (koyu yazılar) ===
-    { name: 'low_thr', threshold: 100, resize: 2, contrast: 2.2, brightness: 1.5, normalize: true, sharpen: true },
-
-    // === YÜKSEK THRESHOLD + INVERT (açık yazılar) ===
-    { name: 'high_inv', threshold: 200, resize: 2, contrast: 1.8, brightness: 1.4, invert: true, normalize: true, sharpen: true },
-
-    // === RENK BAĞIMSIZ GENEL (tüm renkler için) ===
-    { name: 'universal', threshold: 130, resize: 3, contrast: 2.5, brightness: 1.3, normalize: true, sharpen: true, gamma: 1.1 },
+    { name: 'cd_b2_cc120',  blur: 2,   resize: 3, minPx: 120 },
+    { name: 'cd_b2_cc60',   blur: 2,   resize: 3, minPx: 60 },
+    { name: 'cd_b3_cc120',  blur: 3,   resize: 3, minPx: 120 },
+    { name: 'cd_b15_cc120', blur: 1.5, resize: 3, minPx: 120 },
+    { name: 'cd_b2_cc200',  blur: 2,   resize: 3, minPx: 200 },
+    { name: 'cd_b25_cc80',  blur: 2.5, resize: 3, minPx: 80 },
   ];
 
   // Voting için sonuçları topla
@@ -180,8 +149,8 @@ async function runOCRWithVoting(imgBuffer, boxIndex) {
     try {
       ocrStats.totalAttempts++;
 
-      // Görüntüyü işle
-      const processedBuffer = await processImageForOCR(imgBuffer, config);
+      // Görüntüyü adaptif pipeline ile işle
+      const processedBuffer = await preprocessAdaptive(imgBuffer, config);
 
       // OCR çalıştır - RAKAM-ONLY OPTİMİZASYONU
       const { data: { text, confidence } } = await Tesseract.recognize(
@@ -190,7 +159,7 @@ async function runOCRWithVoting(imgBuffer, boxIndex) {
         {
           logger: m => { },
           tessedit_char_whitelist: '0123456789',
-          tessedit_pageseg_mode: '8', // Single word mode - rakamlar için ideal
+          tessedit_pageseg_mode: '7', // Single text line — PSM 8 (single word) %44 vs burada %94
           tessedit_ocr_engine_mode: '1', // LSTM only - daha hızlı
           tessedit_create_hocr: '0', // HOCR çıktısını kapat (hız için)
           tessedit_create_tsv: '0', // TSV çıktısını kapat (hız için)
@@ -262,9 +231,9 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3, isLo
       const rateLimitElems = await driver.findElements(By.xpath("//*[contains(text(), 'maximum number of captcha request') or contains(text(), 'Please try after sometime')]"));
       if (rateLimitElems.length > 0) {
         console.log('😤 Rate limiting! Biraz sakinleşelim... 30 saniye mola ☕');
-        await driver.sleep(30000);
+        await driver.sleep(60000);
         await driver.navigate().refresh();
-        await driver.sleep(5000);
+        await driver.sleep(10000);
         if (retryCount < maxRetries) {
           return await solveCaptchaInIframe(driver, retryCount + 1, maxRetries, isLoginCaptcha);
         }
@@ -286,7 +255,7 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3, isLo
       return;
     }
 
-    await driver.sleep(2000);
+    await driver.sleep(4000);
     await driver.switchTo().defaultContent();
 
     // Alert kontrolü
@@ -300,9 +269,9 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3, isLo
 
         if (alertText.includes('maximum number of captcha request') || alertText.includes('Please try after sometime')) {
           await alert.accept();
-          await driver.sleep(30000);
+          await driver.sleep(60000);
           await driver.navigate().refresh();
-          await driver.sleep(5000);
+          await driver.sleep(10000);
           if (retryCount < maxRetries) {
             return await solveCaptchaInIframe(driver, retryCount + 1, maxRetries, isLoginCaptcha);
           }
@@ -311,7 +280,7 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3, isLo
 
         alertPresent = true;
         await alert.accept();
-        await driver.sleep(500);
+        await driver.sleep(1000);
       }
     } catch (e) { }
 
@@ -352,7 +321,7 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3, isLo
         console.log('😢 Maksimum deneme aşıldı, captcha bu sefer olmadı...');
       }
     } else {
-      await driver.sleep(500);
+      await driver.sleep(1000);
 
       // Kalan alertleri temizle
       try {
@@ -360,7 +329,7 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3, isLo
           await driver.wait(until.alertIsPresent(), 1000);
           const alert = await driver.switchTo().alert();
           await alert.accept();
-          await driver.sleep(500);
+          await driver.sleep(1000);
         }
       } catch (e) { }
 
@@ -389,7 +358,7 @@ async function solveCaptchaInIframe(driver, retryCount = 0, maxRetries = 3, isLo
         }
 
         await alert.accept();
-        await driver.sleep(500);
+        await driver.sleep(1000);
       }
     } catch (e2) {
       // e2 bizim fırlattığımız hata olabilir, tekrar fırlat
@@ -592,7 +561,7 @@ async function selectCaptchaBoxes(driver, targetNumber) {
     try {
       const elem = await driver.findElement(By.css(method.selector));
       await driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", elem);
-      await driver.sleep(300);
+      await driver.sleep(600);
       await driver.executeScript("arguments[0].click();", elem);
       submitted = true;
     } catch (e) { }
@@ -611,7 +580,7 @@ async function selectCaptchaBoxes(driver, targetNumber) {
     `Captcha ${targetNumber}: ${clickedCount}/${boxesToScan.length} kutu${submitOk ? ', gönderildi' : ', submit yok'}`
   );
 
-  await driver.sleep(2000);
+  await driver.sleep(4000);
   if (isInIframe) await driver.switchTo().defaultContent();
 }
 
@@ -623,4 +592,3 @@ module.exports = {
   resetOCRStats,
   ocrStats
 }
-

@@ -13,7 +13,22 @@ require("dotenv").config();
 const EMAIL = process.env.EMAIL;
 const PASSWORD = process.env.PASSWORD;
 
+// ============================================
+// EXIT CODES - main.js scheduler bu kodlarla
+// "slot bulundu" vs "crash" vs "block" ayrımı yapar
+// ============================================
+const EXIT = {
+  NO_SLOTS: 0,       // Slot yok, polling devam etsin
+  SLOTS_FOUND: 10,   // SLOT BULUNDU - her şeyi durdur!
+  BLOCKED: 20,       // Tanınmayan terminal sayfa / olası block
+  GUARD_ABORT: 30,   // Guard tetiklendi - geçici hata
+  CRASH: 1,          // Çöktü
+};
+
 async function main() {
+  // Slot bulunma durumu takibi — exit code için
+  let slotsFound = false;
+
   // "Application Temporarily Unavailable" hatasını kontrol et ve düzelt
   async function checkAndHandleUnavailable(driver) {
     try {
@@ -21,7 +36,7 @@ async function main() {
       if (pageSource.includes('Application Temporarily Unavailable') ||
         pageSource.includes('Temporarily Unavailable')) {
         console.log(MSG.UNAVAILABLE_DETECTED);
-        await driver.sleep(5000);
+        await driver.sleep(10000);
         console.log(MSG.UNAVAILABLE_REFRESHING);
         await driver.navigate().refresh();
         await driver.sleep(CFG.SLEEP.AFTER_LOGIN);
@@ -89,7 +104,7 @@ async function main() {
       await driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", targetDropdown);
       await driver.sleep(CFG.SLEEP.SHORT);
       await driver.executeScript("arguments[0].click();", targetDropdown);
-      await driver.sleep(400);
+      await driver.sleep(800);
 
       // Seçenekleri bul
       let found = false;
@@ -113,10 +128,10 @@ async function main() {
                   const txt = (await item.getText()).trim();
                   if (txt && (txt.toLowerCase() === targetText || txt.toLowerCase().includes(targetText))) {
                     await driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", item);
-                    await driver.sleep(150);
+                    await driver.sleep(300);
                     await driver.executeScript("arguments[0].click();", item);
                     console.log(MSG.DROPDOWN_SELECTED(labelText, txt));
-                    await driver.sleep(400);
+                    await driver.sleep(800);
                     found = true;
                     break;
                   }
@@ -131,7 +146,7 @@ async function main() {
           }
         }
         if (found) break;
-        await driver.sleep(200);
+        await driver.sleep(400);
       }
 
       if (!found) {
@@ -202,7 +217,7 @@ async function main() {
       // ─────────────────────────────────────────────────────────────
 
       // Modal'ın açılmasını bekle
-      await driver.sleep(1000);
+      await driver.sleep(2000);
       await driver.wait(
         until.elementLocated(By.css('div.modal-content')),
         CFG.DROPDOWN.TIMEOUT
@@ -250,19 +265,19 @@ async function main() {
       // ─────────────────────────────────────────────────────────────
 
       // iframe'in DOM'a girmesini bekle
-      await driver.sleep(2000);
+      await driver.sleep(4000);
       await driver.wait(
         until.elementLocated(By.css('iframe.k-content-frame')),
         CFG.DROPDOWN.TIMEOUT
       );
-      await driver.sleep(500);
+      await driver.sleep(1000);
 
       // iframe'e geç
       const popupIframe = await driver.findElement(By.css('iframe.k-content-frame'));
       await driver.switchTo().frame(popupIframe);
 
       // iframe içindeki içeriğin yüklenmesini bekle
-      await driver.sleep(1000);
+      await driver.sleep(2000);
 
       // 6. Submit butonunu bul (iframe context'inde) — birden fazla strateji
       let submitBtn = null;
@@ -310,7 +325,7 @@ async function main() {
             }
           `);
           console.log(MSG.LOCATION_SET_SUBMIT_CLICKED);
-          await driver.sleep(1000);
+          await driver.sleep(2000);
           submitBtn = 'clicked_via_js'; // sentinel
         } catch (jsErr) {
           console.log('⚠️ JS click de başarısız: ' + jsErr.message);
@@ -327,7 +342,7 @@ async function main() {
         await driver.sleep(CFG.SLEEP.SHORT);
         await driver.executeScript("arguments[0].click();", submitBtn);
         console.log(MSG.LOCATION_SET_SUBMIT_CLICKED);
-        await driver.sleep(500); // kısa bekle — alert hızlı açılıyor
+        await driver.sleep(1000); // kısa bekle — alert hızlı açılıyor
       }
 
       // 7. Alert'i kabul et — alert açıkken switchTo().defaultContent() da throw eder!
@@ -389,7 +404,7 @@ async function main() {
             const isDisplayed = await link.isDisplayed();
             if (isDisplayed) {
               await driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", link);
-              await driver.sleep(250);
+              await driver.sleep(500);
               await driver.executeScript("arguments[0].click();", link);
               console.log(MSG.TRY_AGAIN_LINK_CLICKED);
               tryAgainClicked = true;
@@ -411,7 +426,7 @@ async function main() {
               const isDisplayed = await btn.isDisplayed();
               if (isDisplayed) {
                 await driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", btn);
-                await driver.sleep(250);
+                await driver.sleep(500);
                 await driver.executeScript("arguments[0].click();", btn);
                 console.log(MSG.TRY_AGAIN_BTN_CLICKED);
                 tryAgainClicked = true;
@@ -435,7 +450,7 @@ async function main() {
       throw new Error("Try Again işlemi başarısız");
     }
 
-    await driver.sleep(1500);
+    await driver.sleep(3000);
 
     // 2. "Application Temporarily Unavailable" kontrolü
     await checkAndHandleUnavailable(driver);
@@ -467,11 +482,11 @@ async function main() {
           await solveCaptchaInIframe(driver);
 
           // Captcha sonrası kontrol
-          await driver.sleep(1000);
+          await driver.sleep(2000);
           await checkAndHandleUnavailable(driver);
 
           // Form sayfasına gidildi mi?
-          await driver.sleep(1500);
+          await driver.sleep(3000);
           const afterCaptchaUrl = await driver.getCurrentUrl();
           const afterCaptchaPage = await driver.getPageSource();
 
@@ -491,14 +506,14 @@ async function main() {
             throw new Error("Captcha çözülemedi - maksimum deneme aşıldı");
           }
 
-          await driver.sleep(1500);
+          await driver.sleep(3000);
         }
       }
     } else {
       console.log(MSG.CAPTCHA_NOT_NEEDED);
     }
 
-    await driver.sleep(1000);
+    await driver.sleep(2000);
     await checkAndHandleUnavailable(driver);
 
     // 4. Form doldurma - Premium seçimi
@@ -538,7 +553,7 @@ async function main() {
     // 6. PREMIUM MODAL DIALOG KONTROLÜ VE ACCEPT
     try {
       // Modal'ın açılmasını bekle
-      await driver.sleep(1000);
+      await driver.sleep(2000);
 
       // Modal body'yi ara
       const modalBodies = await driver.findElements(By.css('.modal-body, .scam-body'));
@@ -573,7 +588,7 @@ async function main() {
 
                   if (btnDisplayed && btnText.toLowerCase().includes('accept')) {
                     await driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", btn);
-                    await driver.sleep(150);
+                    await driver.sleep(300);
                     await driver.executeScript("arguments[0].click();", btn);
                     console.log(MSG.PREMIUM_MODAL_ACCEPT_CLICKED);
                     acceptClicked = true;
@@ -668,10 +683,20 @@ async function main() {
     // BLS profili bu şehre işlendi; Book Now / form / captcha vb. hata verse bile sonraki çalışmada doğru şehirden devam edilsin
     saveLastCity(city.name);
 
-    // Ana sayfaya geri dön
-    await driver.get(`https://turkey.blsspainglobal.com${CFG.BLS_HOME_URL}`);
-    await driver.sleep(CFG.SLEEP.AFTER_LOGIN);
-    await checkAndHandleUnavailable(driver);
+    if (!skipLocationSet) {
+      // Sadece lokasyon değiştiğinde ana sayfaya geri dön
+      await driver.get(`https://turkey.blsspainglobal.com${CFG.BLS_HOME_URL}`);
+      await driver.sleep(CFG.SLEEP.AFTER_LOGIN);
+      await checkAndHandleUnavailable(driver);
+    } else {
+      // Lokasyon atlandıysa zaten ana sayfadayız, gereksiz refresh atmayalım. Yine de URL'i doğrulayalım.
+      const currentUrl = await driver.getCurrentUrl();
+      if (!currentUrl.includes(CFG.BLS_HOME_URL)) {
+        await driver.get(`https://turkey.blsspainglobal.com${CFG.BLS_HOME_URL}`);
+        await driver.sleep(CFG.SLEEP.AFTER_LOGIN);
+        await checkAndHandleUnavailable(driver);
+      }
+    }
 
     // Her şehir için "Book Now" butonuna tıkla
     try {
@@ -701,11 +726,11 @@ async function main() {
       throw new Error('"Book Now" butonuna tıklanamadı!');
     }
 
-    await driver.sleep(750);
+    await driver.sleep(1500);
     await checkAndHandleUnavailable(driver);
 
     console.log(MSG.APPOINTMENT_PAGE_CHECKING);
-    await driver.sleep(750);
+    await driver.sleep(1500);
 
     const cityCurrentUrl = await driver.getCurrentUrl();
     console.log(MSG.CURRENT_URL(cityCurrentUrl));
@@ -729,7 +754,7 @@ async function main() {
           try {
             if (appointmentRetries > 0) {
               console.log(MSG.APPOINTMENT_CAPTCHA_RETRYING(appointmentRetries + 1, maxAppointmentRetries));
-              await driver.sleep(750);
+              await driver.sleep(1500);
 
               const retryUrl = await driver.getCurrentUrl();
               if (retryUrl.includes('/home/index')) {
@@ -738,19 +763,19 @@ async function main() {
                   By.css(`a[href="${CFG.BOOK_NOW_URL}"]`)
                 );
                 await retryBookNowBtn.click();
-                await driver.sleep(750);
+                await driver.sleep(1500);
               }
             }
 
             console.log(MSG.APPOINTMENT_CAPTCHA_SOLVING);
             await solveCaptchaInIframe(driver);
 
-            await driver.sleep(750);
+            await driver.sleep(1500);
             console.log(MSG.AFTER_CAPTCHA_CHECKING);
             await checkAndHandleUnavailable(driver);
 
             console.log(MSG.FORM_REDIRECT_WAITING);
-            await driver.sleep(750);
+            await driver.sleep(1500);
 
             try {
               await driver.wait(until.urlContains(CFG.VISA_TYPE_URL), 10000);
@@ -781,7 +806,7 @@ async function main() {
       }
     }
 
-    await driver.sleep(1000);
+    await driver.sleep(2000);
     await checkAndHandleUnavailable(driver);
     await checkAndHandleUnavailable(driver);
 
@@ -890,10 +915,14 @@ async function main() {
       await scanAndNotifySlots(driver, `${city.name} Normal`);
     } else {
       console.log(MSG.NORMAL_NO_SLOT);
-      try {
-        await tryPremiumCategory(driver, city);
-      } catch (e) {
-        console.log(MSG.PREMIUM_FAILED(e.message));
+      if (CFG.FORM.CHECK_PREMIUM) {
+        try {
+          await tryPremiumCategory(driver, city);
+        } catch (e) {
+          console.log(MSG.PREMIUM_FAILED(e.message));
+        }
+      } else {
+        console.log("Premium kontrolü kapalı olduğu için atlanıyor (config.js -> CHECK_PREMIUM).");
       }
     }
 
@@ -908,7 +937,7 @@ async function main() {
   // Slot açık mı kontrol fonksiyonu - SADELEŞTİRİLMİŞ
   // NOT: Bu fonksiyon çağrılmadan ÖNCE captcha kontrolü yapılmalı!
   async function checkIfSlotsAreOpen(driver, categoryName) {
-    await driver.sleep(1000);
+    await driver.sleep(2000);
     await checkAndHandleUnavailable(driver);
 
     const pageSource = await driver.getPageSource();
@@ -933,6 +962,7 @@ async function main() {
         console.log(MSG.SLOT_TELEGRAM_FAILED(e.message));
       }
 
+      slotsFound = true;
       return true;
     }
 
@@ -976,7 +1006,7 @@ async function main() {
         name: "JS Click",
         fn: async () => {
           await driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", visibleDatePicker);
-          await driver.sleep(250);
+          await driver.sleep(500);
           await driver.executeScript("arguments[0].click();", visibleDatePicker);
         }
       },
@@ -984,7 +1014,7 @@ async function main() {
         name: "Normal Click",
         fn: async () => {
           await driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", visibleDatePicker);
-          await driver.sleep(250);
+          await driver.sleep(500);
           await visibleDatePicker.click();
         }
       },
@@ -994,7 +1024,7 @@ async function main() {
           const parent = await visibleDatePicker.findElement(By.xpath('../..'));
           const calendarIcon = await parent.findElement(By.css('.k-icon.k-i-calendar'));
           await driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", calendarIcon);
-          await driver.sleep(250);
+          await driver.sleep(500);
           await driver.executeScript("arguments[0].click();", calendarIcon);
         }
       }
@@ -1261,7 +1291,7 @@ async function main() {
         throw new Error("Password girilemedi!");
       }
 
-      await driver.sleep(1000);
+      await driver.sleep(2000);
 
       // Login captcha'yı çöz - retry mekanizması ile
       let loginSuccess = false;
@@ -1305,7 +1335,7 @@ async function main() {
                       arguments[0].removeAttribute('disabled');
                       arguments[0].removeAttribute('readonly');
                     `, passInput);
-                    await driver.sleep(150);
+                    await driver.sleep(300);
                   }
 
                   // Password değerini kontrol et ve doldur
@@ -1314,7 +1344,7 @@ async function main() {
                     // Önce JS ile temizle, sonra doldur
                     await driver.executeScript("arguments[0].value = '';", passInput);
                     await driver.executeScript("arguments[0].focus();", passInput);
-                    await driver.sleep(100);
+                    await driver.sleep(200);
 
                     // sendKeys ile gir
                     await passInput.sendKeys(PASSWORD);
@@ -1369,7 +1399,7 @@ async function main() {
               }
 
               console.log(MSG.PASSWORD_WAITING);
-              await driver.sleep(750);
+              await driver.sleep(1500);
 
               const newPasswords = await driver.findElements(By.css('input[type="password"]'));
               for (let passInput of newPasswords) {
@@ -1396,12 +1426,12 @@ async function main() {
                         arguments[0].removeAttribute('disabled');
                         arguments[0].removeAttribute('readonly');
                       `, passInput);
-                      await driver.sleep(150);
+                      await driver.sleep(300);
                     }
 
                     await driver.executeScript("arguments[0].value = '';", passInput);
                     await driver.executeScript("arguments[0].focus();", passInput);
-                    await driver.sleep(100);
+                    await driver.sleep(200);
                     await passInput.sendKeys(PASSWORD);
 
                     const newValue = await passInput.getAttribute('value');
@@ -1427,13 +1457,13 @@ async function main() {
               console.log(MSG.PASSWORD_FILL_FAILED);
             }
 
-            await driver.sleep(250);
+            await driver.sleep(500);
           }
 
           console.log(MSG.LOGIN_CAPTCHA_SOLVING);
           await solveCaptchaInIframe(driver, 0, CFG.RETRY.MAX_CAPTCHA_RETRIES, true);
 
-          await driver.sleep(750);
+          await driver.sleep(1500);
           console.log(MSG.AFTER_LOGIN_CHECKING);
           await checkAndHandleUnavailable(driver);
 
@@ -1454,7 +1484,7 @@ async function main() {
         }
       }
 
-      await driver.sleep(750);
+      await driver.sleep(1500);
 
       // "Application Temporarily Unavailable" kontrolü
       await checkAndHandleUnavailable(driver);
@@ -1487,7 +1517,7 @@ async function main() {
         // Şehirler arası 10 saniyelik bekleme (son şehirden sonra gerekmez)
         if (i < orderedCities.length - 1) {
           console.log(`⏳ Sonraki şehre geçmeden önce 10 saniye bekleniyor...`);
-          await driver.sleep(10000);
+          await driver.sleep(20000);
         }
       }
 
@@ -1495,12 +1525,31 @@ async function main() {
 
     } catch (e) {
       console.error(MSG.GLOBAL_ERROR(e.message));
+      // Hata durumunda exit code'u güncelle (slotsFound ise yine 10)
+      if (!slotsFound) {
+        process.exitCode = EXIT.CRASH;
+      }
     } finally {
       await driver.quit();
+    }
+
+    // Exit code belirle
+    if (slotsFound) {
+      process.exitCode = EXIT.SLOTS_FOUND;
+      console.log('🎯 Exit code: 10 (SLOTS_FOUND)');
+    } else if (!process.exitCode || process.exitCode === 0) {
+      process.exitCode = EXIT.NO_SLOTS;
+      console.log('📭 Exit code: 0 (NO_SLOTS)');
+    } else {
+      console.log(`⚠️ Exit code: ${process.exitCode}`);
     }
   })();
 }
 
 // app.js artık sadece main() fonksiyonunu çalıştırıyor
-// Döngü için main.js kullanılmalı!
-main();
+// Döngü ve exit code takibi için main.js kullanılmalı!
+if (require.main === module) {
+  main();
+}
+
+module.exports = { main, EXIT };

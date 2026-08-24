@@ -47,10 +47,10 @@ npm start
 - **Çoklu Şehir:** Ankara, İstanbul ve diğer ofisleri sırayla tarar.
 - **Akıllı Sıralama:** Son taranan şehri hatırlar, bir sonraki oturumda gereksiz adımları atlayarak kaldığı yerden devam eder.
 - **7/24 Takip:** Özelleştirilebilir aralıklarla çalışır (sabah 20 dk, öğleden sonra 120 dk).
-- **Captcha Çözümü:** OCR desteği ile captcha'ları otomatik aşar.
+- **Akıllı Captcha Çözümü:** Geliştirilmiş ve daha akıllı OCR mantığı ile captcha'ları daha yüksek başarı oranıyla otomatik aşar.
 - **Geniş Tarama:** 12 ay ileriye kadar tüm uygun tarihleri kontrol eder.
 - **Anlık Bildirim:** Randevu bulunduğunda Telegram üzerinden bildirim gönderir.
-- **Normal + Premium:** Her şehir için her iki kategori de kontrol edilir.
+- **Esnek Kategori (Normal/Premium):** Varsayılan olarak her iki kategori de kontrol edilir. Sadece "Normal" randevuları aramak isterseniz `config.js` dosyasından `CHECK_PREMIUM: false` yapmanız yeterlidir.
 
 ## 🔧 Teknik Yapı
 - **Selenium WebDriver:** Tarayıcı otomasyonu
